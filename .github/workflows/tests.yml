@@ -36,6 +36,7 @@ jobs:
           composer install --no-interaction --prefer-dist
           cp .env.example .env
           php artisan key:generate
+          php artisan wayfinder:generate --with-form
           npm install
           npm run build
 
