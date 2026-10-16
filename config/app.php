@@ -13,6 +13,8 @@ return [
     |
     */
 
+    'commit' => env('RAILWAY_GIT_COMMIT_SHA'),
+
     'name' => env('APP_NAME', 'Laravel'),
 
     /*
