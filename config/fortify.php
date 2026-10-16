@@ -161,7 +161,8 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Set REGISTRATION_ENABLED=false once the owner account exists.
+        ...(env('REGISTRATION_ENABLED', true) ? [Features::registration()] : []),
         Features::resetPasswords(),
         Features::twoFactorAuthentication([
             'confirm' => true,
