@@ -7,5 +7,6 @@ vendor
 public/build
 storage/logs/*
 storage/framework/*/*
+!storage/framework/*/.gitignore
 tests
 bootstrap/cache/*.php
