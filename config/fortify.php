@@ -163,12 +163,6 @@ return [
     'features' => [
         // Set REGISTRATION_DISABLED=true once the owner account exists.
         ...(env('REGISTRATION_DISABLED', false) ? [] : [Features::registration()]),
-        Features::resetPasswords(),
-        Features::twoFactorAuthentication([
-            'confirm' => true,
-            'confirmPassword' => true,
-            // 'window' => 0
-        ]),
         Features::passkeys([
             'confirmPassword' => true,
         ]),

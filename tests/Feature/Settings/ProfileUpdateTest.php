@@ -49,9 +49,8 @@ class ProfileUpdateTest extends TestCase
 
         $response = $this
             ->actingAs($user)
-            ->delete(route('profile.destroy'), [
-                'password' => 'password',
-            ]);
+            ->withSession(['auth.password_confirmed_at' => time()])
+            ->delete(route('profile.destroy'));
 
         $response
             ->assertSessionHasNoErrors()
@@ -61,20 +60,13 @@ class ProfileUpdateTest extends TestCase
         $this->assertNull($user->fresh());
     }
 
-    public function test_correct_password_must_be_provided_to_delete_account()
+    public function test_deleting_an_account_requires_confirmation()
     {
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
-            ->from(route('profile.edit'))
-            ->delete(route('profile.destroy'), [
-                'password' => 'wrong-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrors('password')
-            ->assertRedirect(route('profile.edit'));
+        $this->actingAs($user)
+            ->delete(route('profile.destroy'))
+            ->assertRedirect(route('password.confirm'));
 
         $this->assertNotNull($user->fresh());
     }

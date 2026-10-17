@@ -59,8 +59,7 @@ class PasskeySignupController extends Controller
 
         $input = Validator::make($input, $this->profileRules())->validate();
 
-        // The sign-in password is never shown to the user. The random value keeps the column
-        // populated; the user sets a real one through "forgot password".
+        // The password is never shown or used; the random value only fills the column.
         $user = DB::transaction(function () use ($request, $storePasskey, $input) {
             $user = User::create([
                 ...$input,

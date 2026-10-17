@@ -24,17 +24,17 @@ class RegistrationTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_new_users_can_register()
+    public function test_password_registration_is_refused()
     {
-        $response = $this->post(route('register.store'), [
+        $this->post(route('register.store'), [
             'name' => 'Test User',
             'username' => 'testuser',
             'email' => 'test@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
-        ]);
+        ])->assertSessionHasErrors('email');
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['username' => 'testuser']);
     }
 }

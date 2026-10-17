@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Fortify\ResetUserPassword;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -79,13 +78,4 @@ test('the api token page requires a recent password confirmation', function () {
         ->actingAs(User::factory()->create())
         ->get(route('api-tokens.edit'))
         ->assertRedirect(route('password.confirm'));
-});
-
-test('a password reset revokes every api token', function () {
-    $user = User::factory()->create();
-    $user->createToken('CM');
-
-    app(ResetUserPassword::class)->reset($user, ['password' => 'new-password', 'password_confirmation' => 'new-password']);
-
-    expect($user->tokens()->count())->toBe(0);
 });

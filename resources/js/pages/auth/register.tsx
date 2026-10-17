@@ -7,7 +7,6 @@ import {
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,10 +14,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
-import { passkey, passkeyOptions, store } from '@/routes/register';
+import { link, passkey, passkeyOptions } from '@/routes/register';
 
 type Props = {
-    passwordRules: string;
+    status?: string;
 };
 
 function xsrfToken(): string {
@@ -126,7 +125,7 @@ function PasskeySignup() {
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                     <span className="bg-background px-2 text-muted-foreground">
-                        Or create with a password
+                        Or get a sign-up link by email
                     </span>
                 </div>
             </div>
@@ -134,13 +133,12 @@ function PasskeySignup() {
     );
 }
 
-export default function Register({ passwordRules }: Props) {
+export default function Register({ status }: Props) {
     return (
         <>
             <Head title="Register" />
             <Form
-                {...store.form()}
-                resetOnSuccess={['password', 'password_confirmation']}
+                {...link.form()}
                 disableWhileProcessing
                 className="flex flex-col gap-6"
             >
@@ -195,63 +193,37 @@ export default function Register({ passwordRules }: Props) {
 
                             <PasskeySignup />
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <PasswordInput
-                                    id="password"
-                                    required
-                                    tabIndex={3}
-                                    autoComplete="new-password"
-                                    name="password"
-                                    placeholder="Password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError message={errors.password} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    Confirm password
-                                </Label>
-                                <PasswordInput
-                                    id="password_confirmation"
-                                    required
-                                    tabIndex={4}
-                                    autoComplete="new-password"
-                                    name="password_confirmation"
-                                    placeholder="Confirm password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
-                            </div>
-
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={5}
+                                tabIndex={3}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
-                                Create account
+                                Email me a sign-up link
                             </Button>
                         </div>
 
                         <div className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
+                            <TextLink href={login()} tabIndex={4}>
                                 Log in
                             </TextLink>
                         </div>
                     </>
                 )}
             </Form>
+
+            {status && (
+                <div className="mt-4 text-center text-sm font-medium text-green-600">
+                    {status}
+                </div>
+            )}
         </>
     );
 }
 
 Register.layout = {
     title: 'Create an account',
-    description: 'Enter your details below to create your account',
+    description: 'Enter your details, then use a passkey or an email link',
 };
