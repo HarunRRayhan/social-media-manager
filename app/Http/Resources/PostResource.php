@@ -28,6 +28,8 @@ class PostResource extends JsonResource
             'scheduled_at' => $this->scheduled_at?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
             'error' => $this->error,
+            /** One entry per connected account the post went out to; empty until it is published. */
+            'targets' => PostTargetResource::collection($this->targets),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
         ];

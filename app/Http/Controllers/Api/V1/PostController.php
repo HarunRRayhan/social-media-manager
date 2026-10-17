@@ -25,6 +25,7 @@ class PostController extends Controller
     {
         $posts = $this->visiblePosts($request)
             ->when($request->validated('status'), fn ($query, $status) => $query->where('status', $status))
+            ->with('targets.socialAccount')
             ->latest('id')
             ->paginate();
 

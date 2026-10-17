@@ -8,6 +8,6 @@ test('the api docs spec is public and documents api v1 with bearer auth', functi
     $this->getJson('/docs/api.json')
         ->assertOk()
         ->assertJsonPath('info.title', 'Social Media Manager API')
-        ->assertJsonStructure(['openapi', 'paths' => ['/posts', '/me', '/social-sets']])
+        ->assertJsonStructure(['openapi', 'paths' => ['/posts', '/me', '/social-sets', '/social-accounts']])
         ->assertJsonPath('components.securitySchemes.bearerAuth.type', 'http');
 });

@@ -14,6 +14,13 @@ return [
     |
     */
 
+    // A Meta app with Facebook Login; its redirect URI must be {APP_URL}/connect/meta/callback.
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v26.0'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

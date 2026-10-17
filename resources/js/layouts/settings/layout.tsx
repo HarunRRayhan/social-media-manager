@@ -13,7 +13,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 title={isTeam ? props.auth.currentTeam.name : 'Account'}
                 description={
                     isTeam
-                        ? 'Manage your team, its social sets and API tokens'
+                        ? 'Manage your team, its social sets, connections and API tokens'
                         : 'Manage your profile and account settings'
                 }
             />

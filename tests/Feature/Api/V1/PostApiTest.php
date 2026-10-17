@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Post;
+use App\Models\SocialAccount;
 use App\Models\SocialSet;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -229,4 +230,41 @@ test('invalid platform and past scheduled_at are rejected', function () {
     ], $headers)
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['scheduled_at']);
+});
+
+test('posts show their targets without tokens', function () {
+    $account = SocialAccount::factory()->for($this->team)->create(['name' => 'Page One']);
+    $post = Post::factory()->for($this->set)->create(['status' => 'published', 'platform' => 'facebook']);
+    $post->targets()->create(['social_account_id' => $account->id, 'status' => 'published', 'remote_id' => 'p_1', 'remote_url' => 'https://www.facebook.com/p_1']);
+
+    $this->getJson('/api/v1/posts', apiAs($this->token))
+        ->assertOk()
+        ->assertJsonPath('data.0.targets.0.account', ['name' => 'Page One', 'provider' => 'facebook'])
+        ->assertJsonPath('data.0.targets.0.status', 'published')
+        ->assertJsonPath('data.0.targets.0.remote_url', 'https://www.facebook.com/p_1')
+        ->assertDontSee($account->access_token);
+});
+
+test('social accounts are scoped to the token and never expose tokens', function () {
+    $inDefault = SocialAccount::factory()->for($this->team)->create();
+    $inBoth = SocialAccount::factory()->for($this->team)->instagram()->create();
+    $unassigned = SocialAccount::factory()->for($this->team)->create();
+    SocialAccount::factory()->create();
+    $inDefault->socialSets()->attach($this->set);
+    $inBoth->socialSets()->attach([$this->set->id, $this->otherSet->id]);
+
+    $this->getJson('/api/v1/social-accounts', apiAs($this->token))
+        ->assertOk()
+        ->assertJsonCount(3, 'data')
+        ->assertJsonPath('data.1.provider', 'instagram')
+        ->assertJsonPath('data.1.social_set_ids', [$this->set->id, $this->otherSet->id])
+        ->assertJsonPath('data.2.id', $unassigned->id)
+        ->assertJsonMissingPath('data.0.access_token');
+
+    $this->app['auth']->forgetGuards();
+
+    $this->getJson('/api/v1/social-accounts', apiAs($this->setToken))
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.1.social_set_ids', [$this->set->id]);
 });

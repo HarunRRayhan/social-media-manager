@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -48,6 +49,12 @@ class Post extends Model
     public function socialSet(): BelongsTo
     {
         return $this->belongsTo(SocialSet::class);
+    }
+
+    /** @return HasMany<PostTarget, $this> */
+    public function targets(): HasMany
+    {
+        return $this->hasMany(PostTarget::class);
     }
 
     /** Only drafts and scheduled posts can still change; queued, published, and failed ones are locked. */

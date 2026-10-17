@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Team\ApiTokenController;
+use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
+use App\Http\Controllers\Team\MetaConnectionController;
 use App\Http\Controllers\Team\SocialSetController;
 use App\Http\Controllers\Team\TeamController;
 use App\Http\Controllers\Team\TeamInvitationController;
@@ -49,6 +51,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('team/social-sets/{socialSet}/restore', [SocialSetController::class, 'restore'])
         ->whereNumber('socialSet')
         ->name('social-sets.restore');
+
+    Route::get('team/connections', [ConnectionController::class, 'index'])->name('connections.index');
+    Route::put('team/connections/{account}', [ConnectionController::class, 'update'])
+        ->whereNumber('account')
+        ->name('connections.update');
+    Route::delete('team/connections/{account}', [ConnectionController::class, 'destroy'])
+        ->whereNumber('account')
+        ->name('connections.destroy');
+    Route::get('team/connections/meta/redirect', [MetaConnectionController::class, 'redirect'])->name('connect.meta.redirect');
+    // Registered in the Meta app as {APP_URL}/connect/meta/callback, so this path must not change.
+    Route::get('connect/meta/callback', [MetaConnectionController::class, 'callback'])->name('connect.meta.callback');
 
     Route::get('team/api-tokens', [ApiTokenController::class, 'edit'])
         ->middleware(RequirePassword::class)
