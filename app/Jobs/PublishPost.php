@@ -16,6 +16,13 @@ class PublishPost implements ShouldQueue
     {
         $post = Post::findOrFail($this->postId);
 
+        // Its set was deleted after this was queued: park it so a restore picks it up again.
+        if (! $post->socialSet) {
+            $post->update(['status' => 'scheduled']);
+
+            return;
+        }
+
         // No platform publishers exist yet (Meta comes first), so fail loudly instead of faking a publish.
         $post->update(['status' => 'failed', 'error' => "No publisher for {$post->platform}"]);
     }

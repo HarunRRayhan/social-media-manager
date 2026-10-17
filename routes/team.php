@@ -42,8 +42,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('socialSet')
         ->name('social-sets.update');
     Route::delete('team/social-sets/{socialSet}', [SocialSetController::class, 'destroy'])
+        ->middleware(RequirePassword::class)
         ->whereNumber('socialSet')
         ->name('social-sets.destroy');
+
+    Route::post('team/social-sets/{socialSet}/restore', [SocialSetController::class, 'restore'])
+        ->whereNumber('socialSet')
+        ->name('social-sets.restore');
 
     Route::get('team/api-tokens', [ApiTokenController::class, 'edit'])
         ->middleware(RequirePassword::class)

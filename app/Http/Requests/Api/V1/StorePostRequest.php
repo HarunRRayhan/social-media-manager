@@ -24,7 +24,7 @@ class StorePostRequest extends FormRequest
             'social_set_id' => [
                 Rule::requiredIf(fn () => $team->tokenCan('*')),
                 'integer',
-                Rule::exists('social_sets', 'id')->where('team_id', $team->id),
+                Rule::exists('social_sets', 'id')->where('team_id', $team->id)->whereNull('deleted_at'),
             ],
             'platform' => ['required', Rule::enum(Platform::class)],
             'body' => ['nullable', 'string'],

@@ -32,6 +32,7 @@ type Token = {
     id: number;
     name: string;
     scope: string;
+    created_by: string | null;
     created_at_diff: string;
     last_used_at_diff: string | null;
 };
@@ -184,6 +185,8 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
                                                 /
                                             </span>
                                             Created {token.created_at_diff}
+                                            {token.created_by &&
+                                                ` by ${token.created_by}`}
                                             <span className="mx-1 text-muted-foreground/50">
                                                 /
                                             </span>

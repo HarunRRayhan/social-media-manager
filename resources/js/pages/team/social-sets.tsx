@@ -1,5 +1,5 @@
 import { Form, Head, router } from '@inertiajs/react';
-import { Layers, Pencil, Trash2 } from 'lucide-react';
+import { Layers, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import SocialSetController from '@/actions/App/Http/Controllers/Team/SocialSetController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -23,12 +23,21 @@ type SocialSet = {
     posts_count: number;
 };
 
+type DeletedSocialSet = SocialSet & {
+    purges_on: string;
+};
+
 type Props = {
     socialSets: SocialSet[];
+    deletedSocialSets: DeletedSocialSet[];
     canManage: boolean;
 };
 
-export default function SocialSets({ socialSets, canManage }: Props) {
+export default function SocialSets({
+    socialSets,
+    deletedSocialSets,
+    canManage,
+}: Props) {
     const isLast = socialSets.length === 1;
 
     return (
@@ -191,10 +200,13 @@ export default function SocialSets({ socialSets, canManage }: Props) {
                                                 Delete "{set.name}"?
                                             </DialogTitle>
                                             <DialogDescription>
-                                                Its {set.posts_count} post(s)
-                                                are deleted, and API tokens
-                                                limited to this set are revoked.
-                                                This cannot be undone.
+                                                The set and its{' '}
+                                                {set.posts_count} post(s) can be
+                                                restored for 30 days, then they
+                                                are deleted for good. API tokens
+                                                limited to this set are revoked
+                                                now. You'll confirm it's you
+                                                first.
                                             </DialogDescription>
                                             <DialogFooter className="gap-2">
                                                 <DialogClose asChild>
@@ -225,6 +237,59 @@ export default function SocialSets({ socialSets, canManage }: Props) {
                         </div>
                     ))}
                 </div>
+
+                {deletedSocialSets.length > 0 && (
+                    <div className="space-y-3">
+                        <Heading
+                            variant="small"
+                            title="Recently deleted"
+                            description="Restorable until the date shown, then deleted for good with their posts"
+                        />
+
+                        <div className="overflow-hidden rounded-lg border border-border">
+                            {deletedSocialSets.map((set) => (
+                                <div
+                                    key={set.id}
+                                    className="flex items-center justify-between border-b p-4 last:border-b-0"
+                                >
+                                    <div className="space-y-1">
+                                        <p className="font-medium tracking-tight text-muted-foreground">
+                                            {set.name}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {set.posts_count === 1
+                                                ? '1 post'
+                                                : `${set.posts_count} posts`}
+                                            <span className="mx-1 text-muted-foreground/50">
+                                                /
+                                            </span>
+                                            Deleted for good on {set.purges_on}
+                                        </p>
+                                    </div>
+
+                                    {canManage && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                router.post(
+                                                    SocialSetController.restore.url(
+                                                        set.id,
+                                                    ),
+                                                    {},
+                                                    { preserveScroll: true },
+                                                )
+                                            }
+                                        >
+                                            <RotateCcw className="h-4 w-4" />
+                                            Restore
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

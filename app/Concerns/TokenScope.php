@@ -49,6 +49,6 @@ trait TokenScope
     {
         $set = $this->tokenSocialSet($request);
 
-        return $this->team($request)->posts()->getQuery()->when($set, fn ($query) => $query->whereBelongsTo($set));
+        return $this->team($request)->posts()->getQuery()->whereHas('socialSet')->when($set, fn ($query) => $query->whereBelongsTo($set));
     }
 }
