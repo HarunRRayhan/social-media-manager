@@ -23,7 +23,7 @@ class PasskeySignupTest extends TestCase
         $this->skipUnlessFortifyHas(Features::registration());
     }
 
-    /** Placeholder details; the real ceremony needs a browser authenticator. */
+    /** Sign-up details as the register page posts them. */
     private function signupDetails(array $overrides = []): array
     {
         return array_merge([
@@ -54,7 +54,7 @@ class PasskeySignupTest extends TestCase
 
     public function test_options_validates_details_and_returns_registration_options()
     {
-        $response = $this->getJson(route('register.passkey-options', $this->signupDetails()));
+        $response = $this->postJson(route('register.passkey-options'), $this->signupDetails());
 
         $response->assertOk()
             ->assertJsonStructure(['options' => ['challenge', 'rp' => ['id'], 'user' => ['id', 'name']]])
@@ -67,10 +67,10 @@ class PasskeySignupTest extends TestCase
     {
         User::factory()->create(['username' => 'taken']);
 
-        $this->getJson(route('register.passkey-options', $this->signupDetails([
+        $this->postJson(route('register.passkey-options'), $this->signupDetails([
             'username' => 'taken',
             'email' => 'not-an-email',
-        ])))
+        ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['username', 'email']);
 
@@ -90,7 +90,7 @@ class PasskeySignupTest extends TestCase
             );
         });
 
-        $this->getJson(route('register.passkey-options', $this->signupDetails()))->assertOk();
+        $this->postJson(route('register.passkey-options'), $this->signupDetails())->assertOk();
 
         $response = $this->postJson(route('register.passkey'), [
             'name' => 'Test User',
@@ -117,7 +117,7 @@ class PasskeySignupTest extends TestCase
             );
         });
 
-        $this->getJson(route('register.passkey-options', $this->signupDetails()))->assertOk();
+        $this->postJson(route('register.passkey-options'), $this->signupDetails())->assertOk();
 
         $this->postJson(route('register.passkey'), [
             'name' => 'Test User',
@@ -140,6 +140,9 @@ class PasskeySignupTest extends TestCase
 
     public function test_passkey_signup_routes_are_absent_when_registration_is_disabled()
     {
+        // .env.example sets REGISTRATION_DISABLED=false in $_ENV, which putenv() alone cannot override.
+        $previous = $_ENV['REGISTRATION_DISABLED'] ?? null;
+        $_ENV['REGISTRATION_DISABLED'] = 'true';
         putenv('REGISTRATION_DISABLED=true');
 
         try {
@@ -148,7 +151,13 @@ class PasskeySignupTest extends TestCase
             $this->assertFalse(Route::has('register.passkey-options'));
             $this->assertFalse(Route::has('register.passkey'));
         } finally {
+            unset($_ENV['REGISTRATION_DISABLED']);
             putenv('REGISTRATION_DISABLED');
+
+            if ($previous !== null) {
+                $_ENV['REGISTRATION_DISABLED'] = $previous;
+                putenv("REGISTRATION_DISABLED={$previous}");
+            }
         }
     }
 }

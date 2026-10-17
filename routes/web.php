@@ -12,7 +12,7 @@ Route::get('version', fn () => response()->json(['commit' => config('app.commit'
 // Passkey sign-up sits beside Fortify's register routes, so it shares the same switch.
 if (Features::enabled(Features::registration())) {
     Route::middleware(['guest', 'throttle:passkeys'])->group(function () {
-        Route::get('register/passkey/options', [PasskeySignupController::class, 'options'])
+        Route::post('register/passkey/options', [PasskeySignupController::class, 'options'])
             ->name('register.passkey-options');
 
         Route::post('register/passkey', [PasskeySignupController::class, 'store'])

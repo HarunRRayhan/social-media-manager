@@ -1,5 +1,9 @@
 import { Form, Head, router } from '@inertiajs/react';
-import { Passkeys } from '@laravel/passkeys';
+import {
+    browserSupportsWebAuthn,
+    type PublicKeyCredentialCreationOptionsJSON,
+    startRegistration,
+} from '@simplewebauthn/browser';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
@@ -17,9 +21,37 @@ type Props = {
     passwordRules: string;
 };
 
+function xsrfToken(): string {
+    const cookie = document.cookie
+        .split('; ')
+        .find((c) => c.startsWith('XSRF-TOKEN='));
+
+    return decodeURIComponent(cookie?.split('=')[1] ?? '');
+}
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-XSRF-TOKEN': xsrfToken(),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+    });
+    const json = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(json.message ?? 'Passkey sign-up failed.');
+    }
+
+    return json as T;
+}
+
 function PasskeySignup() {
     const [isSupported] = useState(
-        () => typeof window !== 'undefined' && Passkeys.isSupported(),
+        () => typeof window !== 'undefined' && browserSupportsWebAuthn(),
     );
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -52,13 +84,14 @@ function PasskeySignup() {
         setIsLoading(true);
 
         try {
-            await Passkeys.register({
-                name: details.name,
-                routes: {
-                    options: passkeyOptions.url({ query: details }),
-                    submit: passkey.url(),
-                },
+            const { options } = await postJson<{
+                options: PublicKeyCredentialCreationOptionsJSON;
+            }>(passkeyOptions.url(), details);
+            const credential = await startRegistration({
+                optionsJSON: options,
             });
+
+            await postJson(passkey.url(), { name: details.name, credential });
 
             router.visit('/dashboard');
         } catch (e) {
