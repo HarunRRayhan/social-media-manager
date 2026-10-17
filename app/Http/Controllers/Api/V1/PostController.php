@@ -39,7 +39,7 @@ class PostController extends Controller
     public function store(StorePostRequest $request): JsonResponse
     {
         $tokenSet = $this->tokenSocialSet($request);
-        $setId = $request->validated('social_set_id') ?? $tokenSet?->id;
+        $setId = (int) ($request->validated('social_set_id') ?? $tokenSet?->id);
 
         if ($tokenSet && $setId !== $tokenSet->id) {
             return response()->json(['message' => 'This token can only post to its own social set.'], 403);

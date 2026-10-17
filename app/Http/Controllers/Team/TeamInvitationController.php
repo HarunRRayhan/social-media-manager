@@ -23,12 +23,15 @@ class TeamInvitationController extends Controller
         $team = $request->user()->currentTeam();
         Gate::authorize('manage', $team);
 
+        // Emails compare case-sensitively on Postgres, so invitations are stored lowercased.
+        $request->merge(['email' => Str::lower((string) $request->input('email'))]);
+
         $input = $request->validate([
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('team_invitations')->where('team_id', $team->id)],
             'role' => ['required', Rule::in(['admin', 'member'])],
         ], ['email.unique' => __('That email already has a pending invitation.')]);
 
-        if ($team->users()->where('email', $input['email'])->exists()) {
+        if ($team->users()->whereRaw('lower(email) = ?', [$input['email']])->exists()) {
             throw ValidationException::withMessages(['email' => __('That person is already on the team.')]);
         }
 

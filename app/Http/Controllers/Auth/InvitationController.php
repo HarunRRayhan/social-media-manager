@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,7 +47,7 @@ class InvitationController extends Controller
             return to_route('dashboard');
         }
 
-        if (User::where('email', $invitation->email)->exists()) {
+        if (User::whereRaw('lower(email) = ?', [Str::lower($invitation->email)])->exists()) {
             return redirect()->guest(route('login'))
                 ->with('status', __('Log in as :email to join :team.', ['email' => $invitation->email, 'team' => $props['team']]));
         }
