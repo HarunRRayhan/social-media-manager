@@ -124,3 +124,18 @@ test('the api token page requires a recent password confirmation', function () {
         ->get(route('api-tokens.edit'))
         ->assertRedirect(route('password.confirm'));
 });
+
+test('tokens carry a prefix that says what they are', function () {
+    $team = User::factory()->create()->currentTeam();
+    $set = $team->socialSets()->sole();
+
+    $teamToken = $team->createToken('cm')->plainTextToken;
+    $setToken = $team->createToken('bot', [$set->tokenAbility()])->plainTextToken;
+
+    expect($teamToken)->toStartWith('sm_team_test_')->not->toContain('|')
+        ->and($setToken)->toStartWith('sm_set_test_');
+
+    $this->withHeader('Authorization', 'Bearer '.$teamToken)->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.scope.type', 'team');
+    auth()->forgetGuards();
+    $this->withHeader('Authorization', 'Bearer '.$setToken)->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.scope.type', 'social_set');
+});
