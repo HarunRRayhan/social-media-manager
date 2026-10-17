@@ -13,7 +13,7 @@ class MeController extends Controller
     use TokenScope;
 
     /**
-     * Show the team that owns the access token, and whether the token reaches the whole team or one social set.
+     * Show the team that owns the access token, and whether the token reaches the full team or one social set.
      */
     public function __invoke(Request $request): JsonResponse
     {
