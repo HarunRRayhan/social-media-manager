@@ -4,7 +4,9 @@ use App\Jobs\RunCommentAutomation;
 use App\Models\CommentAutomation;
 use App\Models\SocialAccount;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -229,4 +231,10 @@ test('enabling comment automation subscribes every connected page to the webhook
 
     Http::assertSent(fn ($r) => $r->url() === graphUrl('page1/subscribed_apps') && $r['subscribed_fields'] === 'feed,messages' && $r->hasHeader('Authorization', 'Bearer pt'));
     Http::assertSentCount(1);
+});
+
+test('the webhook skips csrf, which the web group enforces in production', function () {
+    $route = app('router')->getRoutes()->match(Request::create('/webhooks/meta', 'POST'));
+
+    expect(app('router')->gatherRouteMiddleware($route))->not->toContain(PreventRequestForgery::class);
 });
