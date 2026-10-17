@@ -27,6 +27,7 @@ class ProfileUpdateTest extends TestCase
 
         $response = $this
             ->actingAs($user)
+            ->withSession(['auth.password_confirmed_at' => time()])
             ->patch(route('profile.update'), [
                 'name' => 'Test User',
                 'username' => $user->username,
@@ -41,6 +42,21 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
+    }
+
+    public function test_updating_the_profile_requires_confirmation()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => 'attacker@example.com',
+            ])
+            ->assertRedirect(route('password.confirm'));
+
+        $this->assertNotSame('attacker@example.com', $user->fresh()->email);
     }
 
     public function test_user_can_delete_their_account()
