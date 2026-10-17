@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Laravel\Passkeys\Actions\StorePasskey;
@@ -140,24 +141,19 @@ class PasskeySignupTest extends TestCase
 
     public function test_passkey_signup_routes_are_absent_when_registration_is_disabled()
     {
-        // .env.example sets REGISTRATION_DISABLED=false in $_ENV, which putenv() alone cannot override.
-        $previous = $_ENV['REGISTRATION_DISABLED'] ?? null;
-        $_ENV['REGISTRATION_DISABLED'] = 'true';
-        putenv('REGISTRATION_DISABLED=true');
+        $this->assertTrue(Route::has('register.passkey-options'));
 
-        try {
-            $this->refreshApplication();
+        // A real environment variable beats .env (CI copies .env.example, which sets
+        // REGISTRATION_DISABLED=false). An in-process reboot does not reliably honor it,
+        // so the disabled app boots in a child process.
+        $result = Process::env(['REGISTRATION_DISABLED' => 'true'])
+            ->run([PHP_BINARY, base_path('artisan'), 'route:list', '--name=register', '--json']);
 
-            $this->assertFalse(Route::has('register.passkey-options'));
-            $this->assertFalse(Route::has('register.passkey'));
-        } finally {
-            unset($_ENV['REGISTRATION_DISABLED']);
-            putenv('REGISTRATION_DISABLED');
+        $this->assertTrue($result->successful(), $result->errorOutput());
 
-            if ($previous !== null) {
-                $_ENV['REGISTRATION_DISABLED'] = $previous;
-                putenv("REGISTRATION_DISABLED={$previous}");
-            }
-        }
+        $names = collect(json_decode($result->output(), true))->pluck('name');
+
+        $this->assertFalse($names->contains('register.passkey-options'));
+        $this->assertFalse($names->contains('register.passkey'));
     }
 }
