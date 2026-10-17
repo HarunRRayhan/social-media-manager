@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\TeamFactory;
+use DateTimeInterface;
 use Illuminate\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\NewAccessToken;
 
 /**
  * API tokens belong to the team, so the API authenticates as the team (hence Authenticatable).
@@ -54,6 +57,28 @@ class Team extends Model implements AuthenticatableContract
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withPivot('role')->withTimestamps();
+    }
+
+    /**
+     * Issue a token that says what it is, Stripe-style: sm_{team|set}_{live|test}_<random>.
+     * Without the default "id|" part, Sanctum finds it by its hash alone.
+     *
+     * @param  array<int, string>  $abilities
+     */
+    public function createToken(string $name, array $abilities = ['*'], ?DateTimeInterface $expiresAt = null): NewAccessToken
+    {
+        $kind = $abilities === ['*'] ? 'team' : 'set';
+        $mode = app()->isProduction() ? 'live' : 'test';
+        $plainTextToken = "sm_{$kind}_{$mode}_".Str::random(48);
+
+        $token = $this->tokens()->create([
+            'name' => $name,
+            'token' => hash('sha256', $plainTextToken),
+            'abilities' => $abilities,
+            'expires_at' => $expiresAt,
+        ]);
+
+        return new NewAccessToken($token, $plainTextToken);
     }
 
     /**
