@@ -19,8 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         // Railway terminates TLS at its proxy; without this, redirects come back as http://.
-        // Only scheme/host/port are trusted: a trusted X-Forwarded-For would let clients spoof their IP past rate limits.
-        $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PORT);
+        // Only the scheme is trusted: a forwarded host would let a forged header point emailed
+        // login links at another domain, and a forwarded IP would let clients dodge rate limits.
+        $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_PROTO);
 
         $middleware->web(append: [
             HandleAppearance::class,
