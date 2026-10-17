@@ -12,7 +12,7 @@ use RuntimeException;
  */
 class FacebookPublisher implements Publisher
 {
-    public function publish(Post $post, SocialAccount $account): array
+    public function publish(Post $post, SocialAccount $account): string
     {
         $page = $account->external_id;
         $token = $account->access_token;
@@ -23,20 +23,24 @@ class FacebookPublisher implements Publisher
         }
 
         if (count($media) === 1) {
-            $result = MetaGraph::post("{$page}/photos", ['url' => $media[0], 'caption' => $post->body, 'access_token' => $token]);
+            $result = MetaGraph::post("{$page}/photos", $token, ['url' => $media[0], 'caption' => $post->body]);
             $id = $result['post_id'] ?? $result['id'];
         } else {
             $attached = collect($media)->map(fn ($url) => [
-                'media_fbid' => MetaGraph::post("{$page}/photos", ['url' => $url, 'published' => false, 'access_token' => $token])['id'],
+                'media_fbid' => MetaGraph::post("{$page}/photos", $token, ['url' => $url, 'published' => false])['id'],
             ])->all();
 
-            $id = MetaGraph::post("{$page}/feed", array_filter([
+            $id = MetaGraph::post("{$page}/feed", $token, array_filter([
                 'message' => $post->body,
                 'attached_media' => $attached ?: null,
-                'access_token' => $token,
             ]))['id'];
         }
 
-        return ['id' => (string) $id, 'url' => "https://www.facebook.com/{$id}"];
+        return (string) $id;
+    }
+
+    public function url(string $remoteId, SocialAccount $account): string
+    {
+        return "https://www.facebook.com/{$remoteId}";
     }
 }

@@ -69,15 +69,13 @@ class MetaConnectionController extends Controller
         }
 
         try {
-            $client = ['client_id' => config('services.meta.app_id'), 'client_secret' => config('services.meta.app_secret')];
-            $short = MetaGraph::get('oauth/access_token', [...$client, 'redirect_uri' => route('connect.meta.callback'), 'code' => $request->query('code')])['access_token'];
-            $long = MetaGraph::get('oauth/access_token', [...$client, 'grant_type' => 'fb_exchange_token', 'fb_exchange_token' => $short])['access_token'];
+            $short = MetaGraph::exchange(['redirect_uri' => route('connect.meta.callback'), 'code' => $request->query('code')])['access_token'];
+            $long = MetaGraph::exchange(['grant_type' => 'fb_exchange_token', 'fb_exchange_token' => $short])['access_token'];
 
             // shortcut: reads only the first 100 Pages, follow paging.next if a team ever has more.
-            $pages = MetaGraph::get('me/accounts', [
+            $pages = MetaGraph::get('me/accounts', $long, [
                 'fields' => 'id,name,access_token,picture,instagram_business_account{id,username,profile_picture_url}',
                 'limit' => 100,
-                'access_token' => $long,
             ])['data'] ?? [];
         } catch (RuntimeException $e) {
             report($e);

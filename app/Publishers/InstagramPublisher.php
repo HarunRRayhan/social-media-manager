@@ -16,7 +16,7 @@ class InstagramPublisher implements Publisher
     /** Status checks for a video container, waiting 5, 10, 15... seconds (about 4.5 minutes in total). */
     private const POLLS = 10;
 
-    public function publish(Post $post, SocialAccount $account): array
+    public function publish(Post $post, SocialAccount $account): string
     {
         $ig = $account->external_id;
         $token = $account->access_token;
@@ -34,17 +34,17 @@ class InstagramPublisher implements Publisher
             $creation = $this->container($ig, $token, $media[0], ['caption' => $post->body]);
         } else {
             $children = collect($media)->map(fn ($url) => $this->container($ig, $token, $url, ['is_carousel_item' => true]))->implode(',');
-            $creation = MetaGraph::post("{$ig}/media", [
-                'media_type' => 'CAROUSEL', 'children' => $children, 'caption' => $post->body, 'access_token' => $token,
+            $creation = MetaGraph::post("{$ig}/media", $token, [
+                'media_type' => 'CAROUSEL', 'children' => $children, 'caption' => $post->body,
             ])['id'];
         }
 
-        $id = (string) MetaGraph::post("{$ig}/media_publish", ['creation_id' => $creation, 'access_token' => $token])['id'];
+        return (string) MetaGraph::post("{$ig}/media_publish", $token, ['creation_id' => $creation])['id'];
+    }
 
-        // The post is live by now; a failed permalink lookup must not mark it failed.
-        $url = rescue(fn () => MetaGraph::get($id, ['fields' => 'permalink', 'access_token' => $token])['permalink'] ?? null, null, false);
-
-        return ['id' => $id, 'url' => $url];
+    public function url(string $remoteId, SocialAccount $account): ?string
+    {
+        return MetaGraph::get($remoteId, $account->access_token, ['fields' => 'permalink'])['permalink'] ?? null;
     }
 
     /**
@@ -57,7 +57,7 @@ class InstagramPublisher implements Publisher
             ? ['media_type' => ($extra['is_carousel_item'] ?? false) ? 'VIDEO' : 'REELS', 'video_url' => $url]
             : ['image_url' => $url];
 
-        $id = (string) MetaGraph::post("{$ig}/media", [...$params, ...$extra, 'access_token' => $token])['id'];
+        $id = (string) MetaGraph::post("{$ig}/media", $token, [...$params, ...$extra])['id'];
 
         if ($video) {
             $this->waitUntilFinished($id, $token);
@@ -71,7 +71,7 @@ class InstagramPublisher implements Publisher
         for ($i = 1; $i <= self::POLLS; $i++) {
             Sleep::for($i * 5)->seconds();
 
-            $status = MetaGraph::get($container, ['fields' => 'status_code,status', 'access_token' => $token]);
+            $status = MetaGraph::get($container, $token, ['fields' => 'status_code,status']);
             $code = $status['status_code'] ?? null;
 
             if ($code === 'FINISHED') {

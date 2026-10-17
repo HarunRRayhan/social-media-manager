@@ -9,20 +9,21 @@ use App\Publishers\InstagramPublisher;
 use App\Publishers\Publisher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
+/**
+ * Fans a due post out to one PublishPostTarget job per connected account, so each account's
+ * (possibly slow) publish runs under its own timeout.
+ */
 class PublishPost implements ShouldQueue
 {
     use Queueable;
 
-    /** Never retried: a retry after a remote create succeeded would post twice. */
     public int $tries = 1;
 
-    /** Instagram video processing can take minutes. */
-    public int $timeout = 600;
-
     /** @var array<string, class-string<Publisher>> */
-    private const PUBLISHERS = [
+    public const PUBLISHERS = [
         'facebook' => FacebookPublisher::class,
         'instagram' => InstagramPublisher::class,
     ];
@@ -41,9 +42,7 @@ class PublishPost implements ShouldQueue
             return;
         }
 
-        $publisher = isset(self::PUBLISHERS[$post->platform]) ? app(self::PUBLISHERS[$post->platform]) : null;
-
-        if (! $publisher) {
+        if (! isset(self::PUBLISHERS[$post->platform])) {
             $post->update(['status' => 'failed', 'error' => "No publisher for {$post->platform}"]);
 
             return;
@@ -57,36 +56,48 @@ class PublishPost implements ShouldQueue
             return;
         }
 
-        foreach ($accounts as $account) {
-            $target = $post->targets()->firstOrCreate(['social_account_id' => $account->id]);
+        $targets = $accounts->map(fn ($account) => $post->targets()->firstOrCreate(['social_account_id' => $account->id], ['status' => 'pending']));
 
-            // Already created remotely (by an earlier run): never create it again.
-            if ($target->remote_id) {
-                continue;
-            }
+        // Only targets never started; anything already publishing, published or failed is left alone.
+        $pending = $targets->where('status', 'pending');
 
-            try {
-                $result = $publisher->publish($post, $account);
-                $target->update(['status' => 'published', 'remote_id' => $result['id'], 'remote_url' => $result['url'], 'error' => null, 'published_at' => now()]);
-            } catch (Throwable $e) {
-                report($e);
-                $target->update(['status' => 'failed', 'error' => $e->getMessage()]);
-            }
+        if ($pending->isEmpty()) {
+            self::finish($post->id);
         }
 
-        $targets = $post->targets()->with('socialAccount')->get();
-        $failed = $targets->where('status', 'failed');
-
-        $post->update([
-            'status' => $failed->count() === $targets->count() ? 'failed' : 'published',
-            'published_at' => $failed->count() === $targets->count() ? null : now(),
-            'error' => $failed->isEmpty() ? null : 'Failed on '.$failed->map(fn (PostTarget $target) => ($target->socialAccount->name ?? 'a removed account').': '.$target->error)->implode('; '),
-        ]);
+        $pending->each(fn (PostTarget $target) => PublishPostTarget::dispatch($target->id));
     }
 
-    /** The worker died or timed out: say so instead of leaving the post queued forever. */
+    /**
+     * Settle the post once no target is still pending or publishing. Safe to call from every target:
+     * the post row is locked, and only a still-queued post is settled.
+     */
+    public static function finish(int $postId): void
+    {
+        DB::transaction(function () use ($postId) {
+            $post = Post::whereKey($postId)->lockForUpdate()->first();
+            $targets = $post?->targets()->with('socialAccount')->get();
+
+            if (! $post || $post->status !== 'queued' || $targets->whereIn('status', ['pending', 'publishing'])->isNotEmpty()) {
+                return;
+            }
+
+            $failed = $targets->where('status', 'failed');
+            $allFailed = $failed->count() === $targets->count();
+
+            $post->update([
+                'status' => $allFailed ? 'failed' : 'published',
+                'published_at' => $allFailed ? null : now(),
+                'error' => $failed->isEmpty() ? null : 'Failed on '.$failed->map(fn (PostTarget $target) => ($target->socialAccount->name ?? 'a removed account').': '.$target->error)->implode('; '),
+            ]);
+        });
+    }
+
+    /** The fan-out itself died: say so instead of leaving the post queued forever. */
     public function failed(?Throwable $e): void
     {
-        Post::whereKey($this->postId)->where('status', 'queued')->update(['status' => 'failed', 'error' => 'Publishing stopped: '.($e?->getMessage() ?? 'unknown error')]);
+        if (! Post::whereKey($this->postId)->has('targets')->exists()) {
+            Post::whereKey($this->postId)->where('status', 'queued')->update(['status' => 'failed', 'error' => 'Publishing could not start.']);
+        }
     }
 }

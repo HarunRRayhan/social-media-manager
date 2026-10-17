@@ -1,10 +1,12 @@
 <?php
 
 use App\Jobs\PublishPost;
+use App\Jobs\PublishPostTarget;
 use App\Models\Post;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 
@@ -37,7 +39,7 @@ test('a facebook text post goes to the page feed', function () {
 
     PublishPost::dispatchSync($post->id);
 
-    Http::assertSent(fn ($r) => $r->url() === g('page1/feed') && $r['message'] === 'Hello' && $r['access_token'] === 'pt');
+    Http::assertSent(fn ($r) => $r->url() === g('page1/feed') && $r['message'] === 'Hello' && $r->hasHeader('Authorization', 'Bearer pt') && ! str_contains($r->url().$r->body(), 'pt'));
     expect($post->fresh())->status->toBe('published')->error->toBeNull()->published_at->not->toBeNull();
     expect($post->targets()->sole())->status->toBe('published')->remote_id->toBe('page1_42')->remote_url->toBe('https://www.facebook.com/page1_42');
 });
@@ -190,12 +192,70 @@ test('when every account fails the post fails', function () {
 test('a target already created remotely is never posted again', function () {
     Http::fake([g('page1/feed') => ['id' => 'page1_new']]);
     $post = queuedPost(['platform' => 'facebook', 'body' => 'Hi']);
-    $post->targets()->create(['social_account_id' => $this->page->id, 'status' => 'published', 'remote_id' => 'page1_old']);
+    $target = $post->targets()->create(['social_account_id' => $this->page->id, 'status' => 'published', 'remote_id' => 'page1_old']);
 
     PublishPost::dispatchSync($post->id);
+    PublishPostTarget::dispatchSync($target->id);
 
     Http::assertNothingSent();
     expect($post->fresh()->status)->toBe('published')
         ->and($post->targets()->sole()->remote_id)->toBe('page1_old')
-        ->and((new PublishPost($post->id))->tries)->toBe(1);
+        ->and((new PublishPost($post->id))->tries)->toBe(1)
+        ->and((new PublishPostTarget($target->id))->tries)->toBe(1);
+});
+
+test('a target another worker is already publishing is skipped and the post waits for it', function () {
+    $post = queuedPost(['platform' => 'facebook', 'body' => 'Hi']);
+    $target = $post->targets()->create(['social_account_id' => $this->page->id, 'status' => 'publishing']);
+
+    PublishPostTarget::dispatchSync($target->id);
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNothingSent();
+    expect($post->fresh()->status)->toBe('queued');
+});
+
+test('the post settles only when its last target finishes', function () {
+    $second = SocialAccount::factory()->for($this->team)->create(['external_id' => 'page2', 'name' => 'Page Two']);
+    $post = queuedPost(['platform' => 'facebook', 'body' => 'Hi']);
+    $first = $post->targets()->create(['social_account_id' => $this->page->id]);
+    $last = $post->targets()->create(['social_account_id' => $second->id]);
+    Http::fake([g('page1/feed') => ['id' => 'page1_1'], g('page2/feed') => ['id' => 'page2_1']]);
+
+    PublishPostTarget::dispatchSync($first->id);
+    expect($post->fresh()->status)->toBe('queued')
+        ->and($first->fresh()->remote_id)->toBe('page1_1');
+
+    PublishPostTarget::dispatchSync($last->id);
+    expect($post->fresh()->status)->toBe('published');
+});
+
+test('a target whose job dies is failed without request details and settles the post', function () {
+    $post = queuedPost(['platform' => 'facebook', 'body' => 'Hi']);
+    $target = $post->targets()->create(['social_account_id' => $this->page->id, 'status' => 'publishing']);
+
+    (new PublishPostTarget($target->id))->failed(new RuntimeException('timed out https://graph.facebook.com/?access_token=pt'));
+
+    expect($target->fresh())->status->toBe('failed')->error->toBe('Publishing stopped unexpectedly.');
+    expect($post->fresh()->status)->toBe('failed');
+});
+
+test('a connection failure stores an error without the token or url', function () {
+    $this->page->update(['access_token' => 'secret-page-token']);
+    Http::fake(fn () => throw new ConnectionException('cURL error 28 for https://graph.facebook.com/v26.0/page1/feed?access_token=secret-page-token'));
+    $post = queuedPost(['platform' => 'facebook', 'body' => 'Hi']);
+
+    PublishPost::dispatchSync($post->id);
+
+    $error = $post->targets()->sole()->error;
+    expect($error)->toBe('Meta: could not reach the Graph API.')
+        ->and($post->fresh()->error)->not->toContain('secret-page-token')->not->toContain('graph.facebook.com');
+});
+
+test('the queue never hands a running publish to a second worker', function () {
+    $retryAfter = config('queue.connections.database.retry_after');
+
+    // The worker runs with --timeout=900 (deploy/docker/supervisord.conf).
+    expect($retryAfter)->toBeGreaterThan(900)
+        ->and($retryAfter)->toBeGreaterThan((new PublishPostTarget(1))->timeout);
 });

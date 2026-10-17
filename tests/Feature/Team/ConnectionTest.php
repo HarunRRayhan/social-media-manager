@@ -3,6 +3,7 @@
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
@@ -100,7 +101,7 @@ test('a denied login just returns to connections', function () {
 
 test('the callback stores one account per page and per linked instagram account', function () {
     Http::fake([
-        graph('oauth/access_token') => Http::sequence()
+        'https://graph.facebook.com/v26.0/oauth/access_token' => Http::sequence()
             ->push(['access_token' => 'short'])
             ->push(['access_token' => 'long', 'expires_in' => 5184000]),
         graph('me/accounts') => Http::response(['data' => [
@@ -133,12 +134,14 @@ test('the callback stores one account per page and per linked instagram account'
     // Stored encrypted, never in plain text.
     expect(DB::table('social_accounts')->where('id', $ig->id)->value('access_token'))->not->toBe('page-token-1');
 
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'fb_exchange_token=short'));
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'me/accounts') && $request['access_token'] === 'long');
+    Http::assertSent(fn ($request) => $request->method() === 'POST' && ($request['fb_exchange_token'] ?? null) === 'short' && $request['client_secret'] === 'app-secret');
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'me/accounts') && $request->hasHeader('Authorization', 'Bearer long'));
+    // Secrets and tokens never travel in a URL.
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'app-secret') || str_contains($request->url(), 'access_token=') || str_contains($request->url(), 'long'));
 });
 
 test('a meta error during the callback is shown, not thrown', function () {
-    Http::fake([graph('oauth/access_token') => Http::response(['error' => ['message' => 'Invalid code']], 400)]);
+    Http::fake(['https://graph.facebook.com/v26.0/oauth/access_token' => Http::response(['error' => ['message' => 'Invalid code']], 400)]);
 
     $this->actingAs($this->owner)
         ->withSession(['meta_oauth' => ['state' => 'right', 'team_id' => $this->team->id]])
@@ -146,4 +149,14 @@ test('a meta error during the callback is shown, not thrown', function () {
         ->assertRedirect(route('connections.index'));
 
     expect($this->team->socialAccounts()->count())->toBe(0);
+});
+
+test('a connection failure during the callback shows a message without the secret', function () {
+    Http::fake(fn () => throw new ConnectionException('cURL error 6 for https://graph.facebook.com/v26.0/oauth/access_token?client_secret=app-secret'));
+
+    $this->actingAs($this->owner)
+        ->withSession(['meta_oauth' => ['state' => 'right', 'team_id' => $this->team->id]])
+        ->get(route('connect.meta.callback', ['state' => 'right', 'code' => 'abc']))
+        ->assertRedirect(route('connections.index'))
+        ->assertInertiaFlash('toast.message', 'Could not connect to Facebook: Meta: could not reach the Graph API.');
 });

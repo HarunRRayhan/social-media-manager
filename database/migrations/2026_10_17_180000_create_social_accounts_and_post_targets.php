@@ -37,7 +37,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('post_id')->constrained()->cascadeOnDelete();
             $table->foreignId('social_account_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('status')->default('pending'); // pending|published|failed
+            $table->string('status')->default('pending'); // pending|publishing|published|failed
             $table->string('remote_id')->nullable();
             $table->text('remote_url')->nullable();
             $table->text('error')->nullable();
