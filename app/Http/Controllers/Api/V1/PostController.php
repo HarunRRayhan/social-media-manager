@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\IndexPostRequest;
+use App\Http\Requests\Api\V1\StorePostRequest;
+use App\Http\Requests\Api\V1\UpdatePostRequest;
+use App\Http\Resources\PostResource;
+use App\Models\Post;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
+
+class PostController extends Controller
+{
+    /**
+     * List your posts, newest first, optionally filtered by status.
+     */
+    public function index(IndexPostRequest $request): AnonymousResourceCollection
+    {
+        $posts = Post::query()
+            ->whereBelongsTo($request->user())
+            ->when($request->validated('status'), fn ($query, $status) => $query->where('status', $status))
+            ->latest('id')
+            ->paginate();
+
+        return PostResource::collection($posts);
+    }
+
+    /**
+     * Create a post. Without scheduled_at it is saved as a draft; with it, it is scheduled.
+     */
+    public function store(StorePostRequest $request): JsonResponse
+    {
+        $post = Post::create([
+            ...$request->validated(),
+            'user_id' => $request->user()->id,
+            'status' => $request->filled('scheduled_at') ? 'scheduled' : 'draft',
+        ]);
+
+        return PostResource::make($post)->response()->setStatusCode(201);
+    }
+
+    /**
+     * Show one of your posts.
+     */
+    public function show(Request $request, int $post): PostResource
+    {
+        return PostResource::make($this->ownedPost($request, $post));
+    }
+
+    /**
+     * Update a draft or scheduled post. Its status is recomputed from scheduled_at.
+     */
+    public function update(UpdatePostRequest $request, int $post): PostResource|JsonResponse
+    {
+        $model = $this->ownedPost($request, $post);
+
+        if (! $model->isEditable()) {
+            return response()->json(['message' => 'Only draft or scheduled posts can be edited.'], 409);
+        }
+
+        $model->fill($request->validated());
+        $model->status = $model->scheduled_at ? 'scheduled' : 'draft';
+        $model->save();
+
+        return PostResource::make($model);
+    }
+
+    /**
+     * Delete a draft or scheduled post.
+     */
+    public function destroy(Request $request, int $post): Response|JsonResponse
+    {
+        $model = $this->ownedPost($request, $post);
+
+        if (! $model->isEditable()) {
+            return response()->json(['message' => 'Only draft or scheduled posts can be deleted.'], 409);
+        }
+
+        $model->delete();
+
+        return response()->noContent();
+    }
+
+    /**
+     * Other users' posts 404 exactly like missing ones.
+     */
+    private function ownedPost(Request $request, int $post): Post
+    {
+        return Post::query()->whereBelongsTo($request->user())->findOrFail($post);
+    }
+}
