@@ -3,7 +3,7 @@ import { Copy, KeyRound, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import ApiTokenController, {
     destroy,
-} from '@/actions/App/Http/Controllers/Settings/ApiTokenController';
+} from '@/actions/App/Http/Controllers/Team/ApiTokenController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -18,22 +18,34 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import TextLink from '@/components/text-link';
 import { edit } from '@/routes/api-tokens';
 
 type Token = {
     id: number;
     name: string;
+    scope: string;
     created_at_diff: string;
     last_used_at_diff: string | null;
 };
 
 type Props = {
     tokens: Token[];
+    socialSets: { id: number; name: string }[];
     newApiToken?: string | null;
 };
 
-export default function ApiTokens({ tokens, newApiToken }: Props) {
+// Radix Select cannot hold an empty value, so the whole-team choice gets a sentinel the server never sees.
+const WHOLE_TEAM = 'team';
+
+export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
     const [copied, setCopied] = useState(false);
 
     const copyToken = async () => {
@@ -47,15 +59,15 @@ export default function ApiTokens({ tokens, newApiToken }: Props) {
 
     return (
         <>
-            <Head title="API token settings" />
+            <Head title="API tokens" />
 
-            <h1 className="sr-only">API token settings</h1>
+            <h1 className="sr-only">API tokens</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
                     title="API tokens"
-                    description="Create bearer tokens for the Social Media Manager API"
+                    description="Bearer tokens for the Social Media Manager API, for the whole team or one social set"
                 />
 
                 <p className="text-sm text-muted-foreground">
@@ -68,13 +80,20 @@ export default function ApiTokens({ tokens, newApiToken }: Props) {
                     options={{
                         preserveScroll: true,
                     }}
+                    transform={(data) => ({
+                        ...data,
+                        social_set_id:
+                            data.social_set_id === WHOLE_TEAM
+                                ? null
+                                : data.social_set_id,
+                    })}
                     resetOnSuccess
                     onSuccess={() => setCopied(false)}
-                    className="flex items-end gap-2"
+                    className="flex flex-wrap items-start gap-2"
                 >
                     {({ errors, processing }) => (
                         <>
-                            <div className="grid flex-1 gap-2">
+                            <div className="grid min-w-48 flex-1 gap-2">
                                 <Label htmlFor="name">Token name</Label>
 
                                 <Input
@@ -87,7 +106,35 @@ export default function ApiTokens({ tokens, newApiToken }: Props) {
                                 <InputError message={errors.name} />
                             </div>
 
-                            <Button disabled={processing}>Create token</Button>
+                            <div className="grid w-48 gap-2">
+                                <Label htmlFor="social_set_id">Scope</Label>
+                                <Select
+                                    name="social_set_id"
+                                    defaultValue={WHOLE_TEAM}
+                                >
+                                    <SelectTrigger id="social_set_id">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={WHOLE_TEAM}>
+                                            Whole team
+                                        </SelectItem>
+                                        {socialSets.map((set) => (
+                                            <SelectItem
+                                                key={set.id}
+                                                value={String(set.id)}
+                                            >
+                                                {set.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.social_set_id} />
+                            </div>
+
+                            <Button disabled={processing} className="mt-[22px]">
+                                Create token
+                            </Button>
                         </>
                     )}
                 </Form>
@@ -132,6 +179,10 @@ export default function ApiTokens({ tokens, newApiToken }: Props) {
                                             {token.name}
                                         </p>
                                         <p className="text-sm text-muted-foreground">
+                                            {token.scope}
+                                            <span className="mx-1 text-muted-foreground/50">
+                                                /
+                                            </span>
                                             Created {token.created_at_diff}
                                             <span className="mx-1 text-muted-foreground/50">
                                                 /

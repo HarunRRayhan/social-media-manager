@@ -2,7 +2,6 @@
 
 use App\Jobs\PublishPost;
 use App\Models\Post;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 
@@ -10,8 +9,7 @@ uses(RefreshDatabase::class);
 
 function post(string $status, string $when): Post
 {
-    return Post::create([
-        'user_id' => User::factory()->create()->id,
+    return Post::factory()->create([
         'platform' => 'facebook',
         'status' => $status,
         'scheduled_at' => now()->modify($when),

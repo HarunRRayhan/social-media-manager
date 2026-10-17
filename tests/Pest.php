@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Team;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +46,14 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * A new user who belongs to the team with the given role, working in it.
+ */
+function memberOf(Team $team, string $role): User
 {
-    // ..
+    $user = User::factory()->create();
+    $team->users()->attach($user, ['role' => $role]);
+    $user->forceFill(['current_team_id' => $team->id])->save();
+
+    return $user;
 }

@@ -78,7 +78,9 @@ test('a sign-up link creates a verified account', function () {
 
     $user = User::where('username', 'harun')->firstOrFail();
     $this->assertAuthenticatedAs($user);
-    expect($user->hasVerifiedEmail())->toBeTrue();
+    expect($user->hasVerifiedEmail())->toBeTrue()
+        ->and($user->currentTeam()->name)->toBe("Harun's Team")
+        ->and($user->currentTeam()->socialSets()->pluck('name')->all())->toBe(['Default']);
 
     // Straight into passkey setup, without a second confirmation.
     $this->get(route('passkey.setup'))->assertOk();

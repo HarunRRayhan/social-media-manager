@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Post;
+use App\Models\SocialSet;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -8,7 +9,11 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    $this->token = $this->user->createToken('test')->plainTextToken;
+    $this->team = $this->user->currentTeam();
+    $this->set = $this->team->socialSets()->sole();
+    $this->otherSet = $this->team->socialSets()->create(['name' => 'Clients']);
+    $this->token = $this->team->createToken('test')->plainTextToken;
+    $this->setToken = $this->team->createToken('set', [$this->set->tokenAbility()])->plainTextToken;
 });
 
 function apiAs(string $token): array
@@ -20,22 +25,55 @@ test('api requests without a token get 401', function () {
     $this->getJson('/api/v1/posts')->assertUnauthorized();
     $this->postJson('/api/v1/posts', ['platform' => 'bluesky'])->assertUnauthorized();
     $this->getJson('/api/v1/me')->assertUnauthorized();
+    $this->getJson('/api/v1/social-sets')->assertUnauthorized();
 });
 
-test('me returns the token owner', function () {
+test('a signed-in browser session does not authenticate the api', function () {
+    $this->actingAs($this->user)->getJson('/api/v1/me')->assertUnauthorized();
+});
+
+test('me returns the team and a whole-team scope', function () {
     $this->getJson('/api/v1/me', apiAs($this->token))
         ->assertOk()
         ->assertExactJson([
             'data' => [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
-                'username' => $this->user->username,
+                'team' => ['id' => $this->team->id, 'name' => $this->team->name],
+                'scope' => ['type' => 'team'],
             ],
         ]);
 });
 
+test('me returns the social set of a set token', function () {
+    $this->getJson('/api/v1/me', apiAs($this->setToken))
+        ->assertOk()
+        ->assertExactJson([
+            'data' => [
+                'team' => ['id' => $this->team->id, 'name' => $this->team->name],
+                'scope' => ['type' => 'social_set', 'social_set' => ['id' => $this->set->id, 'name' => 'Default']],
+            ],
+        ]);
+});
+
+test('social sets lists every team set for a team token and only its own for a set token', function () {
+    SocialSet::factory()->create();
+
+    $this->getJson('/api/v1/social-sets', apiAs($this->token))
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.id', $this->set->id)
+        ->assertJsonPath('data.1.id', $this->otherSet->id);
+
+    $this->app['auth']->forgetGuards();
+
+    $this->getJson('/api/v1/social-sets', apiAs($this->setToken))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $this->set->id);
+});
+
 test('a post without scheduled_at is saved as a draft', function () {
     $response = $this->postJson('/api/v1/posts', [
+        'social_set_id' => $this->otherSet->id,
         'platform' => 'bluesky',
         'body' => 'Hello',
         'media' => ['https://example.com/a.png'],
@@ -43,14 +81,21 @@ test('a post without scheduled_at is saved as a draft', function () {
 
     $response->assertCreated()
         ->assertJsonPath('data.status', 'draft')
+        ->assertJsonPath('data.social_set_id', $this->otherSet->id)
         ->assertJsonPath('data.platform', 'bluesky')
         ->assertJsonPath('data.media.0', 'https://example.com/a.png');
 
-    $this->assertDatabaseHas('posts', ['id' => $response->json('data.id'), 'user_id' => $this->user->id, 'status' => 'draft']);
+    $this->assertDatabaseHas('posts', [
+        'id' => $response->json('data.id'),
+        'team_id' => $this->team->id,
+        'social_set_id' => $this->otherSet->id,
+        'status' => 'draft',
+    ]);
 });
 
 test('a post with a future scheduled_at is scheduled', function () {
     $this->postJson('/api/v1/posts', [
+        'social_set_id' => $this->set->id,
         'platform' => 'x',
         'body' => 'Later',
         'scheduled_at' => now()->addDay()->toIso8601String(),
@@ -59,10 +104,31 @@ test('a post with a future scheduled_at is scheduled', function () {
         ->assertJsonPath('data.status', 'scheduled');
 });
 
+test('a team token must name a social set of its own team', function () {
+    $this->postJson('/api/v1/posts', ['platform' => 'x'], apiAs($this->token))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['social_set_id']);
+
+    $this->postJson('/api/v1/posts', ['platform' => 'x', 'social_set_id' => SocialSet::factory()->create()->id], apiAs($this->token))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['social_set_id']);
+});
+
+test('a set token posts to its own set and cannot pick another', function () {
+    $this->postJson('/api/v1/posts', ['platform' => 'x'], apiAs($this->setToken))
+        ->assertCreated()
+        ->assertJsonPath('data.social_set_id', $this->set->id);
+
+    $this->postJson('/api/v1/posts', ['platform' => 'x', 'social_set_id' => $this->otherSet->id], apiAs($this->setToken))
+        ->assertForbidden();
+
+    expect(Post::where('social_set_id', $this->otherSet->id)->exists())->toBeFalse();
+});
+
 test('posts can be listed, filtered by status, and shown', function () {
     $headers = apiAs($this->token);
-    $draft = Post::factory()->for($this->user)->create(['status' => 'draft']);
-    Post::factory()->for($this->user)->create(['status' => 'published']);
+    $draft = Post::factory()->for($this->set)->create(['status' => 'draft']);
+    Post::factory()->for($this->otherSet)->create(['status' => 'published']);
 
     $this->getJson('/api/v1/posts', $headers)
         ->assertOk()
@@ -78,9 +144,30 @@ test('posts can be listed, filtered by status, and shown', function () {
         ->assertJsonPath('data.id', $draft->id);
 });
 
+test('a set token only reaches posts in its set', function () {
+    $headers = apiAs($this->setToken);
+    $mine = Post::factory()->for($this->set)->create(['status' => 'draft']);
+    $sibling = Post::factory()->for($this->otherSet)->create(['status' => 'draft']);
+
+    $this->getJson('/api/v1/posts', $headers)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $mine->id);
+
+    $this->getJson("/api/v1/posts/{$mine->id}", $headers)->assertOk();
+    $this->getJson("/api/v1/posts/{$sibling->id}", $headers)->assertNotFound();
+    $this->patchJson("/api/v1/posts/{$sibling->id}", ['body' => 'Mine now'], $headers)->assertNotFound();
+    $this->deleteJson("/api/v1/posts/{$sibling->id}", [], $headers)->assertNotFound();
+
+    $this->patchJson("/api/v1/posts/{$mine->id}", ['body' => 'Edited'], $headers)->assertOk();
+    $this->deleteJson("/api/v1/posts/{$mine->id}", [], $headers)->assertNoContent();
+
+    $this->assertModelExists($sibling);
+});
+
 test('a draft can be edited and its status follows scheduled_at', function () {
     $headers = apiAs($this->token);
-    $post = Post::factory()->for($this->user)->create(['status' => 'draft']);
+    $post = Post::factory()->for($this->set)->create(['status' => 'draft']);
 
     $this->patchJson("/api/v1/posts/{$post->id}", [
         'body' => 'Edited',
@@ -97,7 +184,7 @@ test('a draft can be edited and its status follows scheduled_at', function () {
 
 test('a draft or scheduled post can be deleted', function () {
     $headers = apiAs($this->token);
-    $post = Post::factory()->for($this->user)->create(['status' => 'scheduled']);
+    $post = Post::factory()->for($this->set)->create(['status' => 'scheduled']);
 
     $this->deleteJson("/api/v1/posts/{$post->id}", [], $headers)->assertNoContent();
 
@@ -106,7 +193,7 @@ test('a draft or scheduled post can be deleted', function () {
 
 test('editing or deleting a published post returns 409', function () {
     $headers = apiAs($this->token);
-    $post = Post::factory()->for($this->user)->create(['status' => 'published']);
+    $post = Post::factory()->for($this->set)->create(['status' => 'published']);
 
     $this->patchJson("/api/v1/posts/{$post->id}", ['body' => 'Too late'], $headers)
         ->assertConflict();
@@ -117,9 +204,9 @@ test('editing or deleting a published post returns 409', function () {
     $this->assertDatabaseHas('posts', ['id' => $post->id, 'status' => 'published', 'body' => $post->body]);
 });
 
-test('other users posts return 404', function () {
+test('other teams posts return 404', function () {
     $headers = apiAs($this->token);
-    $other = Post::factory()->for(User::factory()->create())->create(['status' => 'draft']);
+    $other = Post::factory()->create(['status' => 'draft']);
 
     $this->getJson("/api/v1/posts/{$other->id}", $headers)->assertNotFound();
     $this->patchJson("/api/v1/posts/{$other->id}", ['body' => 'Mine now'], $headers)->assertNotFound();
@@ -131,11 +218,12 @@ test('other users posts return 404', function () {
 test('invalid platform and past scheduled_at are rejected', function () {
     $headers = apiAs($this->token);
 
-    $this->postJson('/api/v1/posts', ['platform' => 'myspace'], $headers)
+    $this->postJson('/api/v1/posts', ['social_set_id' => $this->set->id, 'platform' => 'myspace'], $headers)
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['platform']);
 
     $this->postJson('/api/v1/posts', [
+        'social_set_id' => $this->set->id,
         'platform' => 'facebook',
         'scheduled_at' => now()->subHour()->toIso8601String(),
     ], $headers)

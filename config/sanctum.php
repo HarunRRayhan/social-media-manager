@@ -32,7 +32,8 @@ return [
     |
     */
 
-    'guard' => ['web'],
+    // Only bearer tokens: the API authenticates as the token's team, never a session user.
+    'guard' => [],
 
     /*
     |--------------------------------------------------------------------------

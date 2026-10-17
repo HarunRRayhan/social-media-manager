@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Concerns\TokenScope;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\IndexPostRequest;
 use App\Http\Requests\Api\V1\StorePostRequest;
@@ -15,13 +16,14 @@ use Illuminate\Http\Response;
 
 class PostController extends Controller
 {
+    use TokenScope;
+
     /**
-     * List your posts, newest first, optionally filtered by status.
+     * List the token's posts (the team's, or one social set's), newest first, optionally filtered by status.
      */
     public function index(IndexPostRequest $request): AnonymousResourceCollection
     {
-        $posts = Post::query()
-            ->whereBelongsTo($request->user())
+        $posts = $this->visiblePosts($request)
             ->when($request->validated('status'), fn ($query, $status) => $query->where('status', $status))
             ->latest('id')
             ->paginate();
@@ -31,12 +33,22 @@ class PostController extends Controller
 
     /**
      * Create a post. Without scheduled_at it is saved as a draft; with it, it is scheduled.
+     *
+     * A whole-team token must name the social_set_id; a social-set token posts to its own set.
      */
     public function store(StorePostRequest $request): JsonResponse
     {
+        $tokenSet = $this->tokenSocialSet($request);
+        $setId = $request->validated('social_set_id') ?? $tokenSet?->id;
+
+        if ($tokenSet && $setId !== $tokenSet->id) {
+            return response()->json(['message' => 'This token can only post to its own social set.'], 403);
+        }
+
         $post = Post::create([
             ...$request->validated(),
-            'user_id' => $request->user()->id,
+            'team_id' => $this->team($request)->id,
+            'social_set_id' => $setId,
             'status' => $request->filled('scheduled_at') ? 'scheduled' : 'draft',
         ]);
 
@@ -44,7 +56,7 @@ class PostController extends Controller
     }
 
     /**
-     * Show one of your posts.
+     * Show one of the token's posts.
      */
     public function show(Request $request, int $post): PostResource
     {
@@ -86,10 +98,10 @@ class PostController extends Controller
     }
 
     /**
-     * Other users' posts 404 exactly like missing ones.
+     * Posts outside the token's team or social set 404 exactly like missing ones.
      */
     private function ownedPost(Request $request, int $post): Post
     {
-        return Post::query()->whereBelongsTo($request->user())->findOrFail($post);
+        return $this->visiblePosts($request)->findOrFail($post);
     }
 }

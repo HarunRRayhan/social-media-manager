@@ -11,8 +11,18 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type TeamRole = 'owner' | 'admin' | 'member';
+
+export type Team = {
+    id: number;
+    name: string;
+    role: TeamRole;
+};
+
 export type Auth = {
     user: User;
+    currentTeam: Team;
+    teams: Team[];
 };
 
 export type Passkey = {

@@ -38,6 +38,14 @@ class UserFactory extends Factory
     }
 
     /**
+     * Every account has a personal team, as it does after sign-up.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->createPersonalTeam());
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

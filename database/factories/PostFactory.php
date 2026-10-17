@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\Platform;
 use App\Models\Post;
-use App\Models\User;
+use App\Models\SocialSet;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,7 +20,8 @@ class PostFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
+            'social_set_id' => SocialSet::factory(),
+            'team_id' => fn (array $attributes) => SocialSet::whereKey($attributes['social_set_id'])->value('team_id'),
             'platform' => fake()->randomElement(Platform::cases())->value,
             'body' => fake()->sentence(),
             'media' => null,

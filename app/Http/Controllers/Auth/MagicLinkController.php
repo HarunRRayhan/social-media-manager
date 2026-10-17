@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Auth;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
 use App\Notifications\MagicLink;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -99,11 +98,7 @@ class MagicLinkController extends Controller
             return redirect()->route('register')->withErrors($validator);
         }
 
-        // The password is never shown or used; the random value only fills the column.
-        $user = User::create([...$validator->validated(), 'password' => bin2hex(random_bytes(32))]);
-        $user->markEmailAsVerified();
-
-        event(new Registered($user));
+        $user = User::register($validator->validated());
 
         $this->startSession($request, $user);
 

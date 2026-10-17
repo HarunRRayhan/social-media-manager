@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\MagicLinkController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,15 @@ Route::get('magic-link/{token}', [MagicLinkController::class, 'consume'])
     ->middleware('throttle:magic-link')
     ->name('magic-link');
 
+// Not behind the registration switch: an invitation is the way in once public sign-up is closed.
+Route::get('invitations/{token}', [InvitationController::class, 'show'])
+    ->middleware('throttle:10,1')
+    ->name('invitations.show');
+
+Route::post('invitations/{token}', [InvitationController::class, 'store'])
+    ->middleware(['guest', 'throttle:10,1'])
+    ->name('invitations.store');
+
 Route::inertia('setup-passkey', 'auth/setup-passkey')
     ->middleware(['auth', RequirePassword::class])
     ->name('passkey.setup');
@@ -38,3 +48,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+require __DIR__.'/team.php';
