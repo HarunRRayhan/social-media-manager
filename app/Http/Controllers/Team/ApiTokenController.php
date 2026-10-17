@@ -35,7 +35,7 @@ class ApiTokenController extends Controller
                     'name' => $token->name,
                     // A deleted set revokes its tokens, so every set ability resolves to a name.
                     'scope' => $token->abilities === ['*']
-                        ? __('Whole team')
+                        ? __('Full team')
                         : $sets->first(fn ($set) => $token->can($set->tokenAbility()))?->name,
                     'created_by' => $token->creator?->name,
                     'created_at_diff' => $token->created_at->diffForHumans(),
@@ -47,7 +47,7 @@ class ApiTokenController extends Controller
     }
 
     /**
-     * Create a named API token for the whole team or one social set. The plaintext is flashed once and never stored.
+     * Create a named API token for the full team or one social set. The plaintext is flashed once and never stored.
      */
     public function store(ApiTokenStoreRequest $request): RedirectResponse
     {

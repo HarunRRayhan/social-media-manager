@@ -16,7 +16,7 @@ class ApiTokenStoreRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            // Empty means the whole team; otherwise one of the current team's sets.
+            // Empty means the full team; otherwise one of the current team's sets.
             'social_set_id' => [
                 'nullable',
                 'integer',

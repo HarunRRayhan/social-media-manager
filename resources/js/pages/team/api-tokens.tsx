@@ -24,6 +24,9 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
+    SelectGroup,
+    SelectLabel,
+    SelectSeparator,
 } from '@/components/ui/select';
 import TextLink from '@/components/text-link';
 import { edit } from '@/routes/api-tokens';
@@ -44,7 +47,7 @@ type Props = {
 };
 
 // Radix Select cannot hold an empty value, so the whole-team choice gets a sentinel the server never sees.
-const WHOLE_TEAM = 'team';
+const FULL_TEAM = 'team';
 
 export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
     const [copied, setCopied] = useState(false);
@@ -68,7 +71,7 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
                 <Heading
                     variant="small"
                     title="API tokens"
-                    description="Bearer tokens for the Social Media Manager API, for the whole team or one social set"
+                    description="Bearer tokens for the Social Media Manager API, for the full team or one social set"
                 />
 
                 <p className="text-sm text-muted-foreground">
@@ -84,7 +87,7 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
                     transform={(data) => ({
                         ...data,
                         social_set_id:
-                            data.social_set_id === WHOLE_TEAM
+                            data.social_set_id === FULL_TEAM
                                 ? null
                                 : data.social_set_id,
                     })}
@@ -111,23 +114,29 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
                                 <Label htmlFor="social_set_id">Scope</Label>
                                 <Select
                                     name="social_set_id"
-                                    defaultValue={WHOLE_TEAM}
+                                    defaultValue={FULL_TEAM}
                                 >
                                     <SelectTrigger id="social_set_id">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value={WHOLE_TEAM}>
-                                            Whole team
+                                        <SelectItem value={FULL_TEAM}>
+                                            Full team
                                         </SelectItem>
-                                        {socialSets.map((set) => (
-                                            <SelectItem
-                                                key={set.id}
-                                                value={String(set.id)}
-                                            >
-                                                {set.name}
-                                            </SelectItem>
-                                        ))}
+                                        <SelectSeparator />
+                                        <SelectGroup>
+                                            <SelectLabel>
+                                                One social set
+                                            </SelectLabel>
+                                            {socialSets.map((set) => (
+                                                <SelectItem
+                                                    key={set.id}
+                                                    value={String(set.id)}
+                                                >
+                                                    {set.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
                                     </SelectContent>
                                 </Select>
                                 <InputError message={errors.social_set_id} />
