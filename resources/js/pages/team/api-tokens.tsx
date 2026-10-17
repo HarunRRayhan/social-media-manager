@@ -126,7 +126,7 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
                                         <SelectSeparator />
                                         <SelectGroup>
                                             <SelectLabel>
-                                                One social set
+                                                Social sets
                                             </SelectLabel>
                                             {socialSets.map((set) => (
                                                 <SelectItem
