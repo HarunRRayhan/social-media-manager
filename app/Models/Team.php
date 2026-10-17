@@ -103,6 +103,12 @@ class Team extends Model implements AuthenticatableContract
         return $this->hasMany(SocialAccount::class);
     }
 
+    /** @return HasMany<CommentAutomation, $this> */
+    public function commentAutomations(): HasMany
+    {
+        return $this->hasMany(CommentAutomation::class);
+    }
+
     /** @return HasMany<Post, $this> */
     public function posts(): HasMany
     {
