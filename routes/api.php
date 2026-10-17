@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\PostController;
+use App\Http\Controllers\Api\V1\SocialAccountController;
 use App\Http\Controllers\Api\V1\SocialSetController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('me', MeController::class);
     Route::get('social-sets', SocialSetController::class);
+    Route::get('social-accounts', SocialAccountController::class);
 
     Route::get('posts', [PostController::class, 'index']);
     Route::post('posts', [PostController::class, 'store']);

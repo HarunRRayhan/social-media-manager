@@ -16,6 +16,7 @@ import {
 import { dashboard } from '@/routes';
 import { edit as editApiTokens } from '@/routes/api-tokens';
 import { edit as editAppearance } from '@/routes/appearance';
+import { index as connections } from '@/routes/connections';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import { index as socialSets } from '@/routes/social-sets';
@@ -43,6 +44,7 @@ export function AppSidebar() {
                 { title: 'General', href: editTeam() },
                 { title: 'Members', href: teamMembers() },
                 { title: 'Social sets', href: socialSets() },
+                { title: 'Connections', href: connections() },
                 // Only owners and admins manage tokens.
                 ...(canManage
                     ? [{ title: 'API tokens', href: editApiTokens() }]

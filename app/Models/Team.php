@@ -97,6 +97,12 @@ class Team extends Model implements AuthenticatableContract
         return $this->hasMany(SocialSet::class);
     }
 
+    /** @return HasMany<SocialAccount, $this> */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
     /** @return HasMany<Post, $this> */
     public function posts(): HasMany
     {
