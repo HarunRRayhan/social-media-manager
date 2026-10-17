@@ -4,7 +4,7 @@ use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\PostController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('me', MeController::class);
 
     Route::get('posts', [PostController::class, 'index']);

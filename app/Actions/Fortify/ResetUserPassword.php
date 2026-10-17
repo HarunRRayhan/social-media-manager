@@ -25,5 +25,8 @@ class ResetUserPassword implements ResetsUserPasswords
         $user->forceFill([
             'password' => $input['password'],
         ])->save();
+
+        // A reset means the old password may be compromised, so API tokens minted with it go too.
+        $user->tokens()->delete();
     }
 }

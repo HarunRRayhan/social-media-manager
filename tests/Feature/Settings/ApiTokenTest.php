@@ -1,9 +1,12 @@
 <?php
 
+use App\Actions\Fortify\ResetUserPassword;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+beforeEach(fn () => $this->withSession(['auth.password_confirmed_at' => time()]));
 
 test('api token settings page is displayed', function () {
     $this->actingAs(User::factory()->create())
@@ -69,4 +72,20 @@ test('another users token cannot be revoked', function () {
 
 test('guests cannot open the api token settings', function () {
     $this->get(route('api-tokens.edit'))->assertRedirect(route('login'));
+});
+
+test('the api token page requires a recent password confirmation', function () {
+    $this->flushSession()
+        ->actingAs(User::factory()->create())
+        ->get(route('api-tokens.edit'))
+        ->assertRedirect(route('password.confirm'));
+});
+
+test('a password reset revokes every api token', function () {
+    $user = User::factory()->create();
+    $user->createToken('CM');
+
+    app(ResetUserPassword::class)->reset($user, ['password' => 'new-password', 'password_confirmation' => 'new-password']);
+
+    expect($user->tokens()->count())->toBe(0);
 });
