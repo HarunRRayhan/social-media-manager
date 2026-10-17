@@ -1,20 +1,21 @@
 import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { store } from '@/routes/password/confirm';
+import { link } from '@/routes/password/confirm';
 import {
     index as confirmOptions,
     store as confirmStore,
 } from '@/actions/Laravel/Passkeys/Http/Controllers/PasskeyConfirmationController';
 import PasskeyVerify from '@/components/passkey-verify';
 
-export default function ConfirmPassword() {
+type Props = {
+    status?: string;
+};
+
+export default function ConfirmPassword({ status }: Props) {
     return (
         <>
-            <Head title="Confirm password" />
+            <Head title="Confirm it's you" />
 
             <PasskeyVerify
                 routes={{
@@ -23,44 +24,33 @@ export default function ConfirmPassword() {
                 }}
                 label="Confirm with passkey"
                 loadingLabel="Confirming..."
-                separator="Or confirm with password"
+                separator="Or confirm by email"
             />
 
-            <Form {...store.form()} resetOnSuccess={['password']}>
-                {({ processing, errors }) => (
-                    <div className="space-y-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
-                            <PasswordInput
-                                id="password"
-                                name="password"
-                                placeholder="Password"
-                                autoComplete="current-password"
-                                autoFocus
-                            />
-
-                            <InputError message={errors.password} />
-                        </div>
-
-                        <div className="flex items-center">
-                            <Button
-                                className="w-full"
-                                disabled={processing}
-                                data-test="confirm-password-button"
-                            >
-                                {processing && <Spinner />}
-                                Confirm password
-                            </Button>
-                        </div>
-                    </div>
+            <Form {...link.form()}>
+                {({ processing }) => (
+                    <Button
+                        className="w-full"
+                        disabled={processing}
+                        data-test="confirm-link-button"
+                    >
+                        {processing && <Spinner />}
+                        Email me a confirmation link
+                    </Button>
                 )}
             </Form>
+
+            {status && (
+                <div className="mt-4 text-center text-sm font-medium text-green-600">
+                    {status}
+                </div>
+            )}
         </>
     );
 }
 
 ConfirmPassword.layout = {
-    title: 'Confirm password',
+    title: "Confirm it's you",
     description:
-        'This is a secure area of the application. Please confirm your password before continuing.',
+        'This is a secure area of the application. Please confirm before continuing.',
 };

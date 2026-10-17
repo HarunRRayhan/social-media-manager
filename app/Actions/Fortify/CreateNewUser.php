@@ -2,33 +2,21 @@
 
 namespace App\Actions\Fortify;
 
-use App\Concerns\PasswordValidationRules;
-use App\Concerns\ProfileValidationRules;
 use App\Models\User;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
 {
-    use PasswordValidationRules, ProfileValidationRules;
-
     /**
-     * Validate and create a newly registered user.
+     * Refuse Fortify's password sign-up: accounts are created by passkey or email link.
      *
      * @param  array<string, string>  $input
      */
     public function create(array $input): User
     {
-        Validator::make($input, [
-            ...$this->profileRules(),
-            'password' => $this->passwordRules(),
-        ])->validate();
-
-        return User::create([
-            'name' => $input['name'],
-            'username' => $input['username'],
-            'email' => $input['email'],
-            'password' => $input['password'],
+        throw ValidationException::withMessages([
+            'email' => __('Sign up with a passkey or an email link.'),
         ]);
     }
 }
