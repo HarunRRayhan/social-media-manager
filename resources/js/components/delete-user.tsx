@@ -43,8 +43,10 @@ export default function DeleteUser() {
                         </DialogTitle>
                         <DialogDescription>
                             Once your account is deleted, all of its resources
-                            and data will also be permanently deleted. You may
-                            be asked to confirm it's you first.
+                            and data will also be permanently deleted, including
+                            every team you own with its social sets, posts and
+                            API tokens. You may be asked to confirm it's you
+                            first.
                         </DialogDescription>
 
                         <Form

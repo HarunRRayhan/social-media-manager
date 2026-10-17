@@ -20,6 +20,7 @@ class PostResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'social_set_id' => $this->social_set_id,
             'platform' => $this->platform,
             'body' => $this->body,
             'media' => $this->media,

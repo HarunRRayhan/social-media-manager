@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources;
 
-use App\Models\User;
+use App\Models\SocialSet;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin User
+ * @mixin SocialSet
  */
-class UserResource extends JsonResource
+class SocialSetResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -21,7 +21,6 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'username' => $this->username,
         ];
     }
 }

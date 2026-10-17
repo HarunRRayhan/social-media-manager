@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Platform;
+use App\Models\Team;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,16 @@ class StorePostRequest extends FormRequest
      */
     public function rules(): array
     {
+        /** @var Team $team */
+        $team = $this->user();
+
         return [
+            // Required for a whole-team token; a social-set token defaults to its own set.
+            'social_set_id' => [
+                Rule::requiredIf(fn () => $team->tokenCan('*')),
+                'integer',
+                Rule::exists('social_sets', 'id')->where('team_id', $team->id),
+            ],
             'platform' => ['required', Rule::enum(Platform::class)],
             'body' => ['nullable', 'string'],
             'media' => ['nullable', 'array'],
