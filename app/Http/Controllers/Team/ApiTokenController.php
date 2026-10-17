@@ -28,7 +28,8 @@ class ApiTokenController extends Controller
             'tokens' => $team
                 ->tokens()
                 ->latest('id')
-                ->get(['id', 'name', 'abilities', 'created_at', 'last_used_at'])
+                ->with('creator:id,name')
+                ->get(['id', 'name', 'abilities', 'created_by', 'created_at', 'last_used_at'])
                 ->map(fn ($token) => [
                     'id' => $token->id,
                     'name' => $token->name,
@@ -36,6 +37,7 @@ class ApiTokenController extends Controller
                     'scope' => $token->abilities === ['*']
                         ? __('Whole team')
                         : $sets->first(fn ($set) => $token->can($set->tokenAbility()))?->name,
+                    'created_by' => $token->creator?->name,
                     'created_at_diff' => $token->created_at->diffForHumans(),
                     'last_used_at_diff' => $token->last_used_at?->diffForHumans(),
                 ])
@@ -55,6 +57,7 @@ class ApiTokenController extends Controller
         $set = $request->filled('social_set_id') ? $team->socialSets()->findOrFail($request->integer('social_set_id')) : null;
 
         $token = $team->createToken($request->validated('name'), $set ? [$set->tokenAbility()] : ['*']);
+        $token->accessToken->forceFill(['created_by' => $request->user()->id])->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('API token created.')]);
 

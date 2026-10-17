@@ -20,7 +20,7 @@ test('a whole-team token is created and its plaintext is shown once', function (
     $this->actingAs($user)
         ->followingRedirects()
         ->post(route('api-tokens.store'), ['name' => 'Content Machine'])
-        ->assertInertia(fn ($page) => $page->has('newApiToken')->has('tokens', 1)->where('tokens.0.scope', 'Whole team'));
+        ->assertInertia(fn ($page) => $page->has('newApiToken')->has('tokens', 1)->where('tokens.0.scope', 'Whole team')->where('tokens.0.created_by', $user->name));
 
     $token = $team->tokens()->sole();
     expect($token->name)->toBe('Content Machine')

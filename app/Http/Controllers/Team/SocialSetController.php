@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Team;
 
 use App\Http\Controllers\Controller;
+use App\Models\SocialSet;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,13 @@ class SocialSetController extends Controller
 
         return Inertia::render('team/social-sets', [
             'socialSets' => $team->socialSets()->withCount('posts')->orderBy('name')->get(['id', 'name']),
+            'deletedSocialSets' => $team->socialSets()->onlyTrashed()->withCount('posts')->latest('deleted_at')->get()
+                ->map(fn ($set) => [
+                    'id' => $set->id,
+                    'name' => $set->name,
+                    'posts_count' => $set->posts_count,
+                    'purges_on' => $set->deleted_at->addDays(SocialSet::RESTORE_DAYS)->toFormattedDateString(),
+                ]),
             'canManage' => $user->can('manage', $team),
         ]);
     }
@@ -52,7 +60,7 @@ class SocialSetController extends Controller
     }
 
     /**
-     * Delete a set with its posts, and revoke the tokens limited to it. A team keeps at least one set.
+     * Move a set and its posts to the 30-day bin, and revoke the tokens limited to it. A team keeps at least one set.
      */
     public function destroy(Request $request, int $socialSet): RedirectResponse
     {
@@ -71,7 +79,22 @@ class SocialSetController extends Controller
             $set->delete();
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Social set deleted.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Social set deleted. You can restore it for :days days.', ['days' => SocialSet::RESTORE_DAYS])]);
+
+        return to_route('social-sets.index');
+    }
+
+    /**
+     * Bring back a deleted set with its posts. Tokens revoked at deletion stay revoked.
+     */
+    public function restore(Request $request, int $socialSet): RedirectResponse
+    {
+        $team = $request->user()->currentTeam();
+        Gate::authorize('manage', $team);
+
+        $team->socialSets()->onlyTrashed()->findOrFail($socialSet)->restore();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Social set restored.')]);
 
         return to_route('social-sets.index');
     }
