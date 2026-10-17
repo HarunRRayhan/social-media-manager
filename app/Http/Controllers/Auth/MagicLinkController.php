@@ -105,7 +105,12 @@ class MagicLinkController extends Controller
 
         event(new Registered($user));
 
-        return $this->startSession($request, $user);
+        $this->startSession($request, $user);
+
+        // The link just proved who they are, so they can add a passkey without confirming again.
+        $request->session()->passwordConfirmed();
+
+        return redirect()->route('passkey.setup');
     }
 
     private function confirmUser(Request $request, int $userId): RedirectResponse

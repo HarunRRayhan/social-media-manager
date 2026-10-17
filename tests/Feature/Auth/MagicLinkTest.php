@@ -74,11 +74,21 @@ test('a sign-up link creates a verified account', function () {
 
     $this->assertDatabaseMissing('users', ['username' => 'harun']);
 
-    $this->get(sentLink())->assertRedirect(route('dashboard', absolute: false));
+    $this->get(sentLink())->assertRedirect(route('passkey.setup'));
 
     $user = User::where('username', 'harun')->firstOrFail();
     $this->assertAuthenticatedAs($user);
     expect($user->hasVerifiedEmail())->toBeTrue();
+
+    // Straight into passkey setup, without a second confirmation.
+    $this->get(route('passkey.setup'))->assertOk();
+    $this->getJson(route('passkey.registration-options'))->assertOk();
+});
+
+test('passkey setup asks for confirmation on a later visit', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('passkey.setup'))
+        ->assertRedirect(route('password.confirm'));
 });
 
 test('a sign-up link fails if the username was taken meanwhile', function () {

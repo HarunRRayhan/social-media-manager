@@ -1,137 +1,16 @@
-import { Form, Head, router } from '@inertiajs/react';
-import {
-    browserSupportsWebAuthn,
-    type PublicKeyCredentialCreationOptionsJSON,
-    startRegistration,
-} from '@simplewebauthn/browser';
-import { KeyRound } from 'lucide-react';
-import { useState } from 'react';
+import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
-import { link, passkey, passkeyOptions } from '@/routes/register';
+import { link } from '@/routes/register';
 
 type Props = {
     status?: string;
 };
-
-function xsrfToken(): string {
-    const cookie = document.cookie
-        .split('; ')
-        .find((c) => c.startsWith('XSRF-TOKEN='));
-
-    return decodeURIComponent(cookie?.split('=')[1] ?? '');
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-XSRF-TOKEN': xsrfToken(),
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify(body),
-    });
-    const json = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        throw new Error(json.message ?? 'Passkey sign-up failed.');
-    }
-
-    return json as T;
-}
-
-function PasskeySignup() {
-    const [isSupported] = useState(
-        () => typeof window !== 'undefined' && browserSupportsWebAuthn(),
-    );
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    if (!isSupported) {
-        return null;
-    }
-
-    const signUp = async (form: HTMLFormElement | null) => {
-        if (!form) {
-            return;
-        }
-
-        for (const field of ['name', 'username', 'email']) {
-            const input = form.elements.namedItem(field) as HTMLInputElement;
-
-            if (!input.reportValidity()) {
-                return;
-            }
-        }
-
-        const data = new FormData(form);
-        const details = {
-            name: data.get('name') as string,
-            username: data.get('username') as string,
-            email: data.get('email') as string,
-        };
-
-        setError(null);
-        setIsLoading(true);
-
-        try {
-            const { options } = await postJson<{
-                options: PublicKeyCredentialCreationOptionsJSON;
-            }>(passkeyOptions.url(), details);
-            const credential = await startRegistration({
-                optionsJSON: options,
-            });
-
-            await postJson(passkey.url(), { name: details.name, credential });
-
-            router.visit('/dashboard');
-        } catch (e) {
-            setError(
-                e instanceof Error ? e.message : 'Passkey sign-up failed.',
-            );
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <>
-            <div className="grid gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={isLoading}
-                    onClick={(e) => signUp(e.currentTarget.form)}
-                >
-                    {isLoading ? <Spinner /> : <KeyRound className="h-4 w-4" />}
-                    Sign up with a passkey
-                </Button>
-                {error && (
-                    <InputError message={error} className="text-center" />
-                )}
-            </div>
-
-            <div className="relative my-2">
-                <div className="absolute inset-0 flex items-center">
-                    <Separator className="w-full" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                        Or get a sign-up link by email
-                    </span>
-                </div>
-            </div>
-        </>
-    );
-}
 
 export default function Register({ status }: Props) {
     return (
@@ -157,10 +36,7 @@ export default function Register({ status }: Props) {
                                     name="name"
                                     placeholder="Full name"
                                 />
-                                <InputError
-                                    message={errors.name}
-                                    className="mt-2"
-                                />
+                                <InputError message={errors.name} />
                             </div>
 
                             <div className="grid gap-2">
@@ -183,7 +59,7 @@ export default function Register({ status }: Props) {
                                     id="email"
                                     type="email"
                                     required
-                                    tabIndex={2}
+                                    tabIndex={3}
                                     autoComplete="email"
                                     name="email"
                                     placeholder="email@example.com"
@@ -191,12 +67,10 @@ export default function Register({ status }: Props) {
                                 <InputError message={errors.email} />
                             </div>
 
-                            <PasskeySignup />
-
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={3}
+                                tabIndex={4}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
@@ -206,7 +80,7 @@ export default function Register({ status }: Props) {
 
                         <div className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={4}>
+                            <TextLink href={login()} tabIndex={5}>
                                 Log in
                             </TextLink>
                         </div>
@@ -225,5 +99,6 @@ export default function Register({ status }: Props) {
 
 Register.layout = {
     title: 'Create an account',
-    description: 'Enter your details, then use a passkey or an email link',
+    description:
+        "We'll email you a link to confirm your address, then you can add a passkey",
 };
