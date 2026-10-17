@@ -1,17 +1,105 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, router } from '@inertiajs/react';
+import { Passkeys } from '@laravel/passkeys';
+import { KeyRound } from 'lucide-react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
-import { store } from '@/routes/register';
+import { passkey, passkeyOptions, store } from '@/routes/register';
 
 type Props = {
     passwordRules: string;
 };
+
+function PasskeySignup() {
+    const [isSupported] = useState(
+        () => typeof window !== 'undefined' && Passkeys.isSupported(),
+    );
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    if (!isSupported) {
+        return null;
+    }
+
+    const signUp = async (form: HTMLFormElement | null) => {
+        if (!form) {
+            return;
+        }
+
+        for (const field of ['name', 'username', 'email']) {
+            const input = form.elements.namedItem(field) as HTMLInputElement;
+
+            if (!input.reportValidity()) {
+                return;
+            }
+        }
+
+        const data = new FormData(form);
+        const details = {
+            name: data.get('name') as string,
+            username: data.get('username') as string,
+            email: data.get('email') as string,
+        };
+
+        setError(null);
+        setIsLoading(true);
+
+        try {
+            await Passkeys.register({
+                name: details.name,
+                routes: {
+                    options: passkeyOptions.url({ query: details }),
+                    submit: passkey.url(),
+                },
+            });
+
+            router.visit('/dashboard');
+        } catch (e) {
+            setError(
+                e instanceof Error ? e.message : 'Passkey sign-up failed.',
+            );
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <>
+            <div className="grid gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isLoading}
+                    onClick={(e) => signUp(e.currentTarget.form)}
+                >
+                    {isLoading ? <Spinner /> : <KeyRound className="h-4 w-4" />}
+                    Sign up with a passkey
+                </Button>
+                {error && (
+                    <InputError message={error} className="text-center" />
+                )}
+            </div>
+
+            <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                        Or create with a password
+                    </span>
+                </div>
+            </div>
+        </>
+    );
+}
 
 export default function Register({ passwordRules }: Props) {
     return (
@@ -71,6 +159,8 @@ export default function Register({ passwordRules }: Props) {
                                 />
                                 <InputError message={errors.email} />
                             </div>
+
+                            <PasskeySignup />
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password">Password</Label>
