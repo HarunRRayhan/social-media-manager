@@ -1,0 +1,30 @@
+name: deploy
+
+# Railway has no GitHub trigger on these services, so main deploys from here once tests pass.
+on:
+  workflow_run:
+    workflows: [tests]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  railway:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - cbea02c8-3f1b-4b96-97c1-94de476af2ac # web
+          - afc180d5-7cfb-475a-99e0-082b1dd00f9a # worker
+    steps:
+      - name: Deploy commit
+        env:
+          TOKEN: ${{ secrets.RAILWAY_PROJECT_TOKEN }}
+          SERVICE: ${{ matrix.service }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          body=$(jq -nc --arg s "$SERVICE" --arg c "$SHA" '{query:"mutation($s:String!,$e:String!,$c:String!){serviceInstanceDeployV2(serviceId:$s,environmentId:$e,commitSha:$c)}",variables:{s:$s,e:"5dabf29c-526c-4552-88ec-be0ac32ea6c9",c:$c}}')
+          res=$(curl -sS https://backboard.railway.com/graphql/v2 -H "Project-Access-Token: $TOKEN" -H 'content-type: application/json' -d "$body")
+          echo "$res" | jq -e '.data.serviceInstanceDeployV2 and (.errors | not)' >/dev/null || { echo "$res"; exit 1; }
