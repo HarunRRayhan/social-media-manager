@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\PublishPost;
 use App\Models\Post;
 use App\Models\SocialSet;
 use App\Models\User;
@@ -120,4 +121,18 @@ test('sets deleted over 30 days ago are purged with their posts', function () {
     $this->assertModelMissing($old);
     $this->assertModelMissing($oldPost);
     $this->assertSoftDeleted($recent);
+});
+
+test('nothing new lands in a deleted set', function () {
+    $set = $this->team->socialSets()->create(['name' => 'Clients']);
+    $queued = Post::factory()->for($set)->create(['status' => 'queued']);
+    $set->delete();
+    $token = $this->team->createToken('team')->plainTextToken;
+
+    $this->withHeader('Authorization', 'Bearer '.$token)
+        ->postJson('/api/v1/posts', ['social_set_id' => $set->id, 'platform' => 'x', 'content' => 'hi'])
+        ->assertUnprocessable()->assertJsonValidationErrors('social_set_id');
+
+    PublishPost::dispatchSync($queued->id);
+    expect($queued->fresh()->status)->toBe('scheduled');
 });

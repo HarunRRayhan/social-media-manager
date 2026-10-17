@@ -20,7 +20,7 @@ class ApiTokenStoreRequest extends FormRequest
             'social_set_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('social_sets', 'id')->where('team_id', $this->user()->currentTeam()->id),
+                Rule::exists('social_sets', 'id')->where('team_id', $this->user()->currentTeam()->id)->whereNull('deleted_at'),
             ],
         ];
     }
