@@ -29,7 +29,7 @@ class MagicLinkController extends Controller
         $user = User::where('username', $login)->orWhere('email', $login)->first();
 
         if ($user) {
-            $this->send($user->email, ['type' => 'login', 'user' => $user->id]);
+            $this->send($user->email, ['type' => 'login', 'user' => $user->id, 'email' => $user->email]);
         }
 
         return back()->with('status', __('If that account exists, a login link is on its way.'));
@@ -66,7 +66,7 @@ class MagicLinkController extends Controller
         $link = Cache::pull($this->key($token));
 
         return match ($link['type'] ?? null) {
-            'login' => $this->startSession($request, User::whereKey($link['user'])->first()),
+            'login' => $this->startSession($request, User::whereKey($link['user'])->where('email', $link['email'])->first()),
             'signup' => $this->createAccount($request, $link['input']),
             'confirm' => $this->confirmUser($request, $link['user']),
             default => $this->expired(),

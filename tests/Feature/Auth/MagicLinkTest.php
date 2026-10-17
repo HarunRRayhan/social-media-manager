@@ -49,6 +49,16 @@ test('a login link can be requested by email', function () {
     $this->assertAuthenticatedAs($user);
 });
 
+test('a login link dies when the email changes', function () {
+    $user = User::factory()->create();
+
+    $this->post(route('login.link'), ['login' => $user->username]);
+    $user->update(['email' => 'new@example.com']);
+
+    $this->get(sentLink())->assertRedirect(route('login'));
+    $this->assertGuest();
+});
+
 test('an unknown account gets the same reply and no email', function () {
     $this->post(route('login.link'), ['login' => 'nobody'])->assertSessionHas('status');
 
