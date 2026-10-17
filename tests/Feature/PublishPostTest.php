@@ -115,6 +115,92 @@ test('an instagram video is published as a reel once processing finishes', funct
     expect($post->fresh()->status)->toBe('published');
 });
 
+test('a facebook video is published as a page reel', function () {
+    Sleep::fake();
+    Http::fake([
+        g('page1/video_reels') => Http::sequence()->push(['video_id' => 'r1', 'upload_url' => 'https://rupload.facebook.com/video-upload/v26.0/r1'])->push(['success' => true]),
+        'https://rupload.facebook.com/video-upload/v26.0/r1' => ['success' => true],
+        g('r1*') => Http::sequence()
+            ->push(['status' => ['video_status' => 'uploading', 'uploading_phase' => ['status' => 'in_progress']]])
+            ->push(['status' => ['video_status' => 'processing', 'uploading_phase' => ['status' => 'complete']]]),
+    ]);
+    $post = queuedPost(['platform' => 'facebook', 'body' => 'Watch', 'media' => ['https://cdn/clip.mp4']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertSent(fn ($r) => $r->url() === g('page1/video_reels') && $r['upload_phase'] === 'start');
+    Http::assertSent(fn ($r) => str_starts_with($r->url(), 'https://rupload.facebook.com/')
+        && $r->hasHeader('Authorization', 'OAuth pt') && $r->hasHeader('file_url', 'https://cdn/clip.mp4') && ! str_contains($r->url(), 'pt'));
+    Http::assertSent(fn ($r) => $r->url() === g('page1/video_reels') && $r['upload_phase'] === 'finish'
+        && $r['video_id'] === 'r1' && $r['video_state'] === 'PUBLISHED' && $r['description'] === 'Watch');
+    expect($post->fresh()->status)->toBe('published')
+        ->and($post->targets()->sole()->remote_id)->toBe('r1');
+});
+
+test('a facebook reel whose upload fails is never published', function () {
+    Sleep::fake();
+    Http::fake([
+        g('page1/video_reels') => ['video_id' => 'r1'],
+        'https://rupload.facebook.com/*' => ['success' => true],
+        g('r1*') => ['status' => ['video_status' => 'upload_failed']],
+    ]);
+    $post = queuedPost(['platform' => 'facebook', 'media' => ['https://cdn/clip.mov']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNotSent(fn ($r) => ($r['upload_phase'] ?? null) === 'finish');
+    expect($post->fresh())->status->toBe('failed')->error->toContain('upload_failed');
+});
+
+test('a facebook post mixing a video with other media fails clearly', function () {
+    $post = queuedPost(['platform' => 'facebook', 'media' => ['https://cdn/a.jpg', 'https://cdn/clip.mp4']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNothingSent();
+    expect($post->fresh())->status->toBe('failed')->error->toContain('post the video on its own as a Reel');
+});
+
+test('an instagram motion carousel waits for every video child before creating the parent', function () {
+    Sleep::fake();
+    Http::fake([
+        g('ig1/media') => Http::sequence()->push(['id' => 'k1'])->push(['id' => 'k2'])->push(['id' => 'k3'])->push(['id' => 'parent']),
+        g('k1*') => Http::sequence()->push(['status_code' => 'IN_PROGRESS'])->push(['status_code' => 'FINISHED']),
+        g('k3*') => ['status_code' => 'FINISHED'],
+        g('ig1/media_publish') => ['id' => 'm4'],
+        g('m4*') => ['permalink' => 'https://www.instagram.com/p/motion/'],
+    ]);
+    $post = queuedPost(['platform' => 'instagram', 'body' => 'Moving', 'media' => ['https://cdn/a.mp4', 'https://cdn/b.jpg', 'https://cdn/c.mov']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertSent(fn ($r) => $r->url() === g('ig1/media') && ($r['media_type'] ?? null) === 'VIDEO' && $r['video_url'] === 'https://cdn/a.mp4' && $r['is_carousel_item'] === true);
+    Http::assertSent(fn ($r) => $r->url() === g('ig1/media') && ($r['image_url'] ?? null) === 'https://cdn/b.jpg' && $r['is_carousel_item'] === true);
+    Http::assertNotSent(fn ($r) => str_starts_with($r->url(), g('k2')));
+
+    $requests = collect(Http::recorded())->map(fn ($pair) => $pair[0]);
+    $lastPoll = $requests->filter(fn ($r) => str_starts_with($r->url(), g('k')))->keys()->last();
+    $parent = $requests->search(fn ($r) => ($r['media_type'] ?? null) === 'CAROUSEL');
+    expect($parent)->toBeGreaterThan($lastPoll)
+        ->and($requests[$parent]['children'])->toBe('k1,k2,k3')
+        ->and($post->fresh()->status)->toBe('published');
+});
+
+test('an instagram motion carousel with a failed video child is never published', function () {
+    Sleep::fake();
+    Http::fake([
+        g('ig1/media') => Http::sequence()->push(['id' => 'k1'])->push(['id' => 'k2']),
+        g('k1*') => ['status_code' => 'FINISHED'],
+        g('k2*') => ['status_code' => 'ERROR', 'status' => 'Error: too long'],
+    ]);
+    $post = queuedPost(['platform' => 'instagram', 'media' => ['https://cdn/a.mp4', 'https://cdn/b.mp4']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNotSent(fn ($r) => ($r['media_type'] ?? null) === 'CAROUSEL' || str_contains($r->url(), 'media_publish'));
+    expect($post->fresh())->status->toBe('failed')->error->toContain('too long');
+});
+
 test('an instagram video that fails processing fails the post', function () {
     Sleep::fake();
     Http::fake([

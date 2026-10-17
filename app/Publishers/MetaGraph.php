@@ -38,6 +38,19 @@ class MetaGraph
     }
 
     /**
+     * Have Meta fetch a hosted video into an upload session (Reels publishing API). The token goes in an
+     * OAuth Authorization header and the file URL in a `file_url` header, as rupload expects.
+     *
+     * @return array<string, mixed>
+     */
+    public static function uploadFromUrl(string $videoId, string $token, string $fileUrl): array
+    {
+        return self::send(fn () => Http::timeout(120)
+            ->withHeaders(['Authorization' => "OAuth {$token}", 'file_url' => $fileUrl])
+            ->post('https://rupload.facebook.com/video-upload/'.config('services.meta.graph_version').'/'.$videoId));
+    }
+
+    /**
      * The OAuth token endpoint, with the app secret in a form body.
      *
      * @param  array<string, mixed>  $params

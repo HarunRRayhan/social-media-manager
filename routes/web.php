@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\MagicLinkController;
+use App\Http\Controllers\Webhooks\MetaWebhookController;
 use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -10,6 +12,12 @@ Route::inertia('/', 'welcome')->name('home');
 
 // Lets a deploy be verified: the served commit must match the merged one.
 Route::get('version', fn () => response()->json(['commit' => config('app.commit')]));
+
+// Meta calls these directly; POST bodies are authenticated by their X-Hub-Signature-256 instead of a CSRF token.
+Route::get('webhooks/meta', [MetaWebhookController::class, 'verify'])->name('webhooks.meta.verify');
+Route::post('webhooks/meta', [MetaWebhookController::class, 'receive'])
+    ->withoutMiddleware(PreventRequestForgery::class)
+    ->name('webhooks.meta');
 
 // Email-link sign-up sits beside Fortify's register routes, so it shares the same switch.
 if (Features::enabled(Features::registration())) {

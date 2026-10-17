@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Team\ApiTokenController;
+use App\Http\Controllers\Team\CommentAutomationController;
 use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
 use App\Http\Controllers\Team\MetaConnectionController;
@@ -62,6 +63,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('team/connections/meta/redirect', [MetaConnectionController::class, 'redirect'])->name('connect.meta.redirect');
     // Registered in the Meta app as {APP_URL}/connect/meta/callback, so this path must not change.
     Route::get('connect/meta/callback', [MetaConnectionController::class, 'callback'])->name('connect.meta.callback');
+
+    Route::get('team/automations', [CommentAutomationController::class, 'index'])->name('automations.index');
+    Route::post('team/automations', [CommentAutomationController::class, 'store'])->name('automations.store');
+    Route::post('team/automations/subscribe', [CommentAutomationController::class, 'subscribe'])->name('automations.subscribe');
+    Route::put('team/automations/{automation}', [CommentAutomationController::class, 'update'])
+        ->whereNumber('automation')
+        ->name('automations.update');
+    Route::delete('team/automations/{automation}', [CommentAutomationController::class, 'destroy'])
+        ->whereNumber('automation')
+        ->name('automations.destroy');
 
     Route::get('team/api-tokens', [ApiTokenController::class, 'edit'])
         ->middleware(RequirePassword::class)

@@ -19,6 +19,10 @@ return [
         'app_id' => env('META_APP_ID'),
         'app_secret' => env('META_APP_SECRET'),
         'graph_version' => env('META_GRAPH_VERSION', 'v26.0'),
+        // The Verify Token typed into the App Dashboard's webhook setup for {APP_URL}/webhooks/meta.
+        // Subscribe the Page object to `feed` and the Instagram object to `comments` there; Pages are
+        // subscribed to the app on connect (or from Team > Automations), Instagram rides on its linked Page.
+        'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
     ],
 
     'postmark' => [

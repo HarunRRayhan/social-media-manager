@@ -25,6 +25,13 @@ class MetaConnectionController extends Controller
         'business_management',
         'instagram_basic',
         'instagram_content_publish',
+        // Comment automations: receive comment webhooks, send private replies, post public replies.
+        'pages_manage_metadata',
+        'pages_messaging',
+        'pages_manage_engagement',
+        'pages_read_user_content',
+        'instagram_manage_comments',
+        'instagram_manage_messages',
     ];
 
     /**
@@ -113,9 +120,22 @@ class MetaConnectionController extends Controller
             return $count;
         });
 
+        // Best effort: comment automations need it, publishing does not. The Automations page can retry it.
+        foreach ($pages as $page) {
+            rescue(fn () => self::subscribe((string) $page['id'], $page['access_token']));
+        }
+
         return $count
             ? $this->back('success', trans_choice('{1} Connected 1 account.|[2,*] Connected :count accounts.', $count))
             : $this->back('error', __('No Facebook Pages were shared. Pick at least one Page when Facebook asks.'));
+    }
+
+    /**
+     * Subscribe a Page to the app's webhooks, so its comments (and its Instagram account's) reach /webhooks/meta.
+     */
+    public static function subscribe(string $pageId, string $pageToken): void
+    {
+        MetaGraph::post("{$pageId}/subscribed_apps", $pageToken, ['subscribed_fields' => 'feed,messages']);
     }
 
     private function back(string $type, string $message): RedirectResponse
