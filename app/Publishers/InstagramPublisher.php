@@ -41,6 +41,10 @@ class InstagramPublisher implements Publisher
             $creation = MetaGraph::post("{$ig}/media", $token, [
                 'media_type' => 'CAROUSEL', 'children' => $children->pluck('id')->implode(','), 'caption' => $post->body,
             ])['id'];
+
+            // A carousel holding videos is processed too, and publishing it early fails with "Media ID is not available".
+            // Five polls (75s) keep both waits inside the job's 420s timeout.
+            $this->waitUntilFinished($children->contains('video', true) ? [$creation] : [], $token, 5);
         }
 
         return (string) MetaGraph::post("{$ig}/media_publish", $token, ['creation_id' => $creation])['id'];
@@ -69,9 +73,9 @@ class InstagramPublisher implements Publisher
      *
      * @param  array<int, string>  $containers
      */
-    private function waitUntilFinished(array $containers, string $token): void
+    private function waitUntilFinished(array $containers, string $token, int $polls = self::POLLS): void
     {
-        for ($i = 1; $i <= self::POLLS && $containers !== []; $i++) {
+        for ($i = 1; $i <= $polls && $containers !== []; $i++) {
             Sleep::for($i * 5)->seconds();
 
             foreach ($containers as $key => $container) {
