@@ -99,7 +99,7 @@ export default function ConnectionsPick({ pages, instagram }: Props) {
                         <Heading
                             variant="small"
                             title="Choose accounts"
-                            description="Pick the Facebook Pages and Instagram accounts the team should publish to"
+                            description="Pick the accounts the team should publish to. Accounts already connected stay connected; remove them on the Connections page."
                         />
 
                         <Group
@@ -113,7 +113,7 @@ export default function ConnectionsPick({ pages, instagram }: Props) {
                             candidates={instagram}
                         />
 
-                        <InputError message={errors.facebook} />
+                        <InputError message={Object.values(errors)[0]} />
 
                         <Button disabled={processing}>Connect selected</Button>
                     </>

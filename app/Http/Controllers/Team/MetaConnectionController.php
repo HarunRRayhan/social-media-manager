@@ -99,6 +99,10 @@ class MetaConnectionController extends Controller
         }
 
         // Tokens stay server-side; the picker only ever sees ids, names and pictures.
+        if ($old = $request->session()->get('meta_pick.key')) {
+            Cache::forget('meta-pick:'.$old);
+        }
+
         $key = Str::random(40);
         Cache::put('meta-pick:'.$key, encrypt($pages), now()->addMinutes(15));
         $request->session()->put('meta_pick', ['key' => $key, 'team_id' => $team->id]);
@@ -198,7 +202,8 @@ class MetaConnectionController extends Controller
             return $count;
         });
 
-        Cache::forget('meta-pick:'.$request->session()->pull('meta_pick')['key']);
+        Cache::forget('meta-pick:'.$request->session()->pull('meta_pick.key'));
+        $request->session()->forget('meta_pick');
 
         // Best effort: comment automations need it, publishing does not. The Automations page can retry it.
         foreach ($chosen as $page) {

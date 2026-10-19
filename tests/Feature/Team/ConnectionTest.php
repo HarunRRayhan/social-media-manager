@@ -148,6 +148,16 @@ test('the callback saves nothing and sends the user to the picker', function () 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'app-secret') || str_contains($request->url(), 'access_token=') || str_contains($request->url(), 'long'));
 });
 
+test('signing in again drops the previous cached sign-in', function () {
+    Cache::put('meta-pick:old', 'stale', now()->addMinutes(15));
+    $this->withSession(['meta_pick' => ['key' => 'old', 'team_id' => $this->team->id]]);
+
+    signIn($this);
+
+    expect(Cache::has('meta-pick:old'))->toBeFalse()
+        ->and(session('meta_pick.key'))->not->toBe('old');
+});
+
 test('the picker lists pages and instagram accounts without tokens, ticking only connected ones', function () {
     SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111']);
     signIn($this);
