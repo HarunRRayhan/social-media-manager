@@ -41,7 +41,7 @@ class MetaWebhookController extends Controller
             SocialAccount::query()
                 ->where('provider', $comment['provider'])
                 ->where('external_id', $comment['account'])
-                ->with(['commentAutomations' => fn ($query) => $query->where('active', true)])
+                ->with(['commentAutomations' => fn ($query) => $query->where('type', 'comment_to_dm')->where('active', true)])
                 ->get()
                 ->each(fn (SocialAccount $account) => $account->commentAutomations
                     ->filter(fn (CommentAutomation $automation) => $automation->coversPost($comment['post']) && $automation->matches($comment['text']))
