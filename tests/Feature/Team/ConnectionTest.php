@@ -279,3 +279,14 @@ test('a connection failure during the callback shows a message without the secre
         ->assertRedirect(route('connections.index'))
         ->assertInertiaFlash('toast.message', 'Could not connect to Facebook: Meta: could not reach the Graph API.');
 });
+
+test('a page that cannot be subscribed to webhooks is named in a warning', function () {
+    // Registered before signIn()'s fakes, so it wins over their wildcard.
+    Http::fake([graph('111/subscribed_apps') => Http::response(['error' => ['message' => 'Nope.']], 403)]);
+    signIn($this);
+
+    $this->actingAs($this->owner)
+        ->post(route('connect.meta.store'), ['facebook' => ['111', '333']])
+        ->assertInertiaFlash('toast.type', 'warning')
+        ->assertInertiaFlash('toast.message', 'Connected 2 accounts. Comment automations will not run on Harun Page until you connect again.');
+});

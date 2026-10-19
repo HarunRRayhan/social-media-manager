@@ -217,18 +217,24 @@ class MetaConnectionController extends Controller
 
         $this->forget($request);
 
-        // Best effort: comment automations need it, publishing does not. Automations → Check webhooks retries it.
-        foreach ($chosen as $page) {
-            rescue(fn () => self::subscribe((string) $page['id'], $page['access_token']));
-        }
+        $connected = trans_choice('{1} Connected 1 account.|[2,*] Connected :count accounts.', $count);
 
-        return $this->back('success', trans_choice('{1} Connected 1 account.|[2,*] Connected :count accounts.', $count));
+        // Comment automations need the webhook subscription, publishing does not; a failure is reported, not fatal.
+        $unsubscribed = array_filter($chosen, fn (array $page) => rescue(function () use ($page) {
+            self::subscribe((string) $page['id'], $page['access_token']);
+
+            return false;
+        }, true));
+
+        return $unsubscribed === []
+            ? $this->back('success', $connected)
+            : $this->back('warning', $connected.' '.__('Comment automations will not run on :pages until you connect again.', ['pages' => implode(', ', array_column($unsubscribed, 'name'))]));
     }
 
     /**
      * Subscribe a Page to the app's webhooks, so its comments (and its Instagram account's) reach /webhooks/meta.
      */
-    public static function subscribe(string $pageId, string $pageToken): void
+    private static function subscribe(string $pageId, string $pageToken): void
     {
         MetaGraph::post("{$pageId}/subscribed_apps", $pageToken, ['subscribed_fields' => 'feed,messages']);
     }

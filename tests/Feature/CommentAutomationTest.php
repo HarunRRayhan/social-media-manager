@@ -309,21 +309,3 @@ test('the webhook skips csrf, which the web group enforces in production', funct
 
     expect(app('router')->gatherRouteMiddleware($route))->not->toContain(PreventRequestForgery::class);
 });
-
-it('re-subscribes each connected page to webhooks once', function () {
-    Http::fake([graphUrl('page1/subscribed_apps') => ['success' => true]]);
-
-    $this->actingAs($this->owner)->post('/team/automations/webhooks')
-        ->assertRedirect('/team/automations')
-        ->assertInertiaFlash('toast.type', 'success');
-
-    Http::assertSentCount(1);
-    Http::assertSent(fn (Illuminate\Http\Client\Request $request) => $request['subscribed_fields'] === 'feed,messages');
-});
-
-it('shows the Meta error when a page cannot be subscribed', function () {
-    Http::fake([graphUrl('page1/subscribed_apps') => Http::response(['error' => ['message' => 'Missing pages_manage_metadata.']], 403)]);
-
-    $this->actingAs($this->owner)->post('/team/automations/webhooks')
-        ->assertInertiaFlash('toast.type', 'error');
-});
