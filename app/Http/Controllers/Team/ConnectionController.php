@@ -20,6 +20,7 @@ class ConnectionController extends Controller
     {
         $user = $request->user();
         $team = $user->currentTeam();
+        $canManage = $user->can('manage', $team);
 
         return Inertia::render('team/connections', [
             'accounts' => $team->socialAccounts()->with('socialSets:id')->orderBy('provider')->orderBy('name')->get()
@@ -28,8 +29,10 @@ class ConnectionController extends Controller
                     'social_set_ids' => $account->socialSets->pluck('id'),
                 ]),
             'socialSets' => $team->socialSets()->orderBy('name')->get(['id', 'name']),
-            'canManage' => $user->can('manage', $team),
+            'canManage' => $canManage,
             'metaConfigured' => filled(config('services.meta.app_id')),
+            // A Facebook sign-in waiting for the user to pick its accounts; opens the picker dialog.
+            'pending' => $canManage ? MetaConnectionController::candidates($request, $team) : null,
         ]);
     }
 

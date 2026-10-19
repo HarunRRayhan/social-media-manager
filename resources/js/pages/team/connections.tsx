@@ -1,8 +1,11 @@
 import { Head, router } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { Plug, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import ConnectionController from '@/actions/App/Http/Controllers/Team/ConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
 import Heading from '@/components/heading';
+import InputError from '@/components/input-error';
+import PlatformIcon from '@/components/platform-icon';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,19 +16,30 @@ import {
     DialogContent,
     DialogDescription,
     DialogFooter,
+    DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { metaPlatforms, platforms } from '@/lib/platforms';
+import type { PlatformKey } from '@/lib/platforms';
 import { index } from '@/routes/connections';
 
 type Account = {
     id: number;
-    provider: 'facebook' | 'instagram';
+    provider: PlatformKey;
     name: string;
     username: string | null;
     avatar_url: string | null;
     social_set_ids: number[];
+};
+
+type Candidate = {
+    id: string;
+    name: string;
+    username?: string | null;
+    avatar_url: string | null;
+    connected: boolean;
 };
 
 type Props = {
@@ -33,17 +47,295 @@ type Props = {
     socialSets: { id: number; name: string }[];
     canManage: boolean;
     metaConfigured: boolean;
+    pending: { pages: Candidate[]; instagram: Candidate[] } | null;
 };
 
-const providerLabel = { facebook: 'Facebook Page', instagram: 'Instagram' };
+function ConnectDialog({ metaConfigured }: { metaConfigured: boolean }) {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button>
+                    <Plus />
+                    Connect account
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Connect an account</DialogTitle>
+                    <DialogDescription>
+                        Facebook and Instagram connect together through one
+                        Facebook sign-in.
+                    </DialogDescription>
+                </DialogHeader>
 
-export default function Connections({
-    accounts,
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {platforms.map((platform) => {
+                        const href =
+                            metaConfigured ||
+                            !metaPlatforms.includes(platform.key)
+                                ? platform.connect
+                                : null;
+                        const body = (
+                            <>
+                                <PlatformIcon platform={platform.key} />
+                                <span className="text-sm font-medium">
+                                    {platform.label}
+                                </span>
+                                {!href && (
+                                    <span className="text-xs text-muted-foreground">
+                                        {platform.connect
+                                            ? 'Not configured'
+                                            : 'Coming soon'}
+                                    </span>
+                                )}
+                            </>
+                        );
+                        const card =
+                            'flex flex-col items-center gap-2 rounded-xl border p-4 text-center';
+
+                        return href ? (
+                            <a
+                                key={platform.key}
+                                href={href}
+                                className={`${card} transition-colors hover:border-foreground/20 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
+                            >
+                                {body}
+                            </a>
+                        ) : (
+                            <div
+                                key={platform.key}
+                                aria-disabled
+                                className={`${card} cursor-not-allowed opacity-50 grayscale`}
+                            >
+                                {body}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {!metaConfigured && (
+                    <p className="text-sm text-muted-foreground">
+                        Facebook and Instagram can be connected once META_APP_ID
+                        and META_APP_SECRET are configured.
+                    </p>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function CandidateList({
+    field,
+    candidates,
+    selected,
+    onToggle,
+}: {
+    field: 'facebook' | 'instagram';
+    candidates: Candidate[];
+    selected: string[];
+    onToggle: (id: string, on: boolean) => void;
+}) {
+    return (
+        <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
+            {candidates.map((candidate) => {
+                const id = `pick-${field}-${candidate.id}`;
+
+                return (
+                    <Label
+                        key={candidate.id}
+                        htmlFor={id}
+                        className="flex cursor-pointer items-center gap-3 border-b p-3 font-normal last:border-b-0 has-disabled:cursor-default"
+                    >
+                        <Checkbox
+                            id={id}
+                            checked={
+                                candidate.connected ||
+                                selected.includes(candidate.id)
+                            }
+                            disabled={candidate.connected}
+                            onCheckedChange={(on) =>
+                                onToggle(candidate.id, on === true)
+                            }
+                        />
+                        <Avatar className="h-9 w-9">
+                            <AvatarImage
+                                src={candidate.avatar_url ?? undefined}
+                                alt=""
+                            />
+                            <AvatarFallback>
+                                {candidate.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium tracking-tight">
+                                {candidate.name}
+                            </p>
+                            {candidate.username && (
+                                <p className="truncate text-sm text-muted-foreground">
+                                    @{candidate.username}
+                                </p>
+                            )}
+                        </div>
+                        {candidate.connected && (
+                            <Badge variant="secondary">Connected</Badge>
+                        )}
+                    </Label>
+                );
+            })}
+        </div>
+    );
+}
+
+function PickDialog({ pending }: { pending: NonNullable<Props['pending']> }) {
+    const [open, setOpen] = useState(true);
+    const [step, setStep] = useState<'facebook' | 'instagram'>('facebook');
+    const [picked, setPicked] = useState({
+        facebook: [] as string[],
+        instagram: [] as string[],
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [processing, setProcessing] = useState(false);
+
+    const hasInstagram = pending.instagram.length > 0;
+    const lastStep = step === 'instagram' || !hasInstagram;
+    const toggle =
+        (field: 'facebook' | 'instagram') => (id: string, on: boolean) =>
+            setPicked((current) => ({
+                ...current,
+                [field]: on
+                    ? [...current[field], id]
+                    : current[field].filter((value) => value !== id),
+            }));
+    const connectedIds = (candidates: Candidate[]) =>
+        candidates.filter((c) => c.connected).map((c) => c.id);
+
+    // Closing without connecting drops the sign-in, so the dialog does not open again.
+    const cancel = () => {
+        setOpen(false);
+        router.delete(MetaConnectionController.cancel.url(), {
+            preserveScroll: true,
+        });
+    };
+
+    // Already-connected accounts are sent too, so this sign-in refreshes their tokens.
+    const submit = () =>
+        router.post(
+            MetaConnectionController.store.url(),
+            {
+                facebook: [...connectedIds(pending.pages), ...picked.facebook],
+                instagram: [
+                    ...connectedIds(pending.instagram),
+                    ...picked.instagram,
+                ],
+            },
+            {
+                preserveScroll: true,
+                onStart: () => {
+                    setErrors({});
+                    setProcessing(true);
+                },
+                onFinish: () => setProcessing(false),
+                onError: setErrors,
+                onSuccess: () => setOpen(false),
+            },
+        );
+
+    const count = picked.facebook.length + picked.instagram.length;
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(next) => !next && !processing && cancel()}
+        >
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <div className="flex items-center gap-3">
+                        <PlatformIcon platform={step} className="size-8" />
+                        <DialogTitle>
+                            {step === 'facebook'
+                                ? 'Choose Facebook Pages'
+                                : 'Choose Instagram accounts'}
+                        </DialogTitle>
+                    </div>
+                    <DialogDescription>
+                        {hasInstagram && (
+                            <span className="font-medium text-foreground">
+                                Step {step === 'facebook' ? 1 : 2} of 2.{' '}
+                            </span>
+                        )}
+                        {step === 'facebook'
+                            ? 'Pick the Pages the team should publish to.'
+                            : 'Pick the Instagram accounts linked to your Pages.'}{' '}
+                        Connected accounts stay connected; disconnect them from
+                        this page.
+                    </DialogDescription>
+                </DialogHeader>
+
+                {step === 'facebook' ? (
+                    <CandidateList
+                        field="facebook"
+                        candidates={pending.pages}
+                        selected={picked.facebook}
+                        onToggle={toggle('facebook')}
+                    />
+                ) : (
+                    <CandidateList
+                        field="instagram"
+                        candidates={pending.instagram}
+                        selected={picked.instagram}
+                        onToggle={toggle('instagram')}
+                    />
+                )}
+
+                <InputError message={Object.values(errors)[0]} />
+
+                <DialogFooter className="gap-2">
+                    {step === 'instagram' ? (
+                        <Button
+                            variant="secondary"
+                            onClick={() => setStep('facebook')}
+                        >
+                            Back
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="secondary"
+                            onClick={cancel}
+                            disabled={processing}
+                        >
+                            Cancel
+                        </Button>
+                    )}
+                    {lastStep ? (
+                        <Button
+                            onClick={submit}
+                            disabled={processing || count === 0}
+                        >
+                            {count > 0
+                                ? `Connect selected (${count})`
+                                : 'Connect selected'}
+                        </Button>
+                    ) : (
+                        <Button onClick={() => setStep('instagram')}>
+                            Next
+                        </Button>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function AccountRow({
+    account,
     socialSets,
     canManage,
-    metaConfigured,
-}: Props) {
-    const toggleSet = (account: Account, setId: number, on: boolean) =>
+}: {
+    account: Account;
+    socialSets: Props['socialSets'];
+    canManage: boolean;
+}) {
+    const toggleSet = (setId: number, on: boolean) =>
         router.put(
             ConnectionController.update.url(account.id),
             {
@@ -55,211 +347,176 @@ export default function Connections({
         );
 
     return (
+        <div className="flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+                <Avatar className="h-10 w-10">
+                    <AvatarImage src={account.avatar_url ?? undefined} alt="" />
+                    <AvatarFallback>
+                        {account.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                    <p className="truncate font-medium tracking-tight">
+                        {account.name}
+                    </p>
+                    {account.username && (
+                        <p className="truncate text-sm text-muted-foreground">
+                            @{account.username}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-4 pl-13 sm:pl-0">
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {socialSets.map((set) => {
+                        const id = `account-${account.id}-set-${set.id}`;
+
+                        return (
+                            <div
+                                key={set.id}
+                                className="flex items-center gap-2"
+                            >
+                                <Checkbox
+                                    id={id}
+                                    checked={account.social_set_ids.includes(
+                                        set.id,
+                                    )}
+                                    disabled={!canManage}
+                                    onCheckedChange={(on) =>
+                                        toggleSet(set.id, on === true)
+                                    }
+                                />
+                                <Label htmlFor={id} className="font-normal">
+                                    {set.name}
+                                </Label>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {canManage && (
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Disconnect</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle>
+                                Disconnect "{account.name}"?
+                            </DialogTitle>
+                            <DialogDescription>
+                                Scheduled posts in its social sets will no
+                                longer go to this account. You can connect it
+                                again later.
+                            </DialogDescription>
+                            <DialogFooter className="gap-2">
+                                <DialogClose asChild>
+                                    <Button variant="secondary">Cancel</Button>
+                                </DialogClose>
+                                <Button
+                                    variant="destructive"
+                                    onClick={() =>
+                                        router.delete(
+                                            ConnectionController.destroy.url(
+                                                account.id,
+                                            ),
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    Disconnect
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export default function Connections({
+    accounts,
+    socialSets,
+    canManage,
+    metaConfigured,
+    pending,
+}: Props) {
+    const groups = platforms
+        .map((platform) => ({
+            platform,
+            accounts: accounts.filter((a) => a.provider === platform.key),
+        }))
+        .filter((group) => group.accounts.length > 0);
+
+    return (
         <>
             <Head title="Connections" />
 
             <h1 className="sr-only">Connections</h1>
 
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Connections"
-                    description="Accounts the team publishes to; a post goes to every account of its platform in its social set"
-                />
+            {pending && <PickDialog pending={pending} />}
 
-                {canManage &&
-                    (metaConfigured ? (
-                        <Button asChild>
-                            <a href={MetaConnectionController.redirect.url()}>
-                                Connect Facebook & Instagram
-                            </a>
-                        </Button>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">
-                            Facebook and Instagram can be connected once
-                            META_APP_ID and META_APP_SECRET are configured.
-                        </p>
-                    ))}
+            <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                    <Heading
+                        variant="small"
+                        title="Connections"
+                        description="Accounts the team publishes to; a post goes to every account of its platform in its social set"
+                    />
+                    {canManage && accounts.length > 0 && (
+                        <ConnectDialog metaConfigured={metaConfigured} />
+                    )}
+                </div>
 
                 {accounts.length === 0 ? (
-                    <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                        No accounts connected yet.
-                    </p>
+                    <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border border-dashed p-8 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
+                            <Plug className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="max-w-xs text-sm text-muted-foreground">
+                            {canManage
+                                ? 'Connect a social account to start publishing from this team.'
+                                : 'No accounts connected yet. Ask a team admin to connect one.'}
+                        </p>
+                        {canManage && (
+                            <ConnectDialog metaConfigured={metaConfigured} />
+                        )}
+                    </div>
                 ) : (
-                    (
-                        [
-                            ['facebook', 'Facebook Pages'],
-                            ['instagram', 'Instagram'],
-                        ] as const
-                    ).map(([provider, title]) => {
-                        const group = accounts.filter(
-                            (account) => account.provider === provider,
-                        );
-
-                        return (
-                            group.length > 0 && (
-                                <section key={provider} className="space-y-3">
-                                    <h2 className="text-sm font-medium">
-                                        {title}
-                                    </h2>
-                                    <div className="overflow-hidden rounded-lg border border-border">
-                                        {group.map((account) => (
-                                            <div
-                                                key={account.id}
-                                                className="space-y-3 border-b p-4 last:border-b-0"
-                                            >
-                                                <div className="flex items-center justify-between gap-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <Avatar className="h-10 w-10">
-                                                            <AvatarImage
-                                                                src={
-                                                                    account.avatar_url ??
-                                                                    undefined
-                                                                }
-                                                                alt=""
-                                                            />
-                                                            <AvatarFallback>
-                                                                {account.name
-                                                                    .charAt(0)
-                                                                    .toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-
-                                                        <div className="space-y-1">
-                                                            <p className="font-medium tracking-tight">
-                                                                {account.name}
-                                                            </p>
-                                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                                <Badge variant="secondary">
-                                                                    {
-                                                                        providerLabel[
-                                                                            account
-                                                                                .provider
-                                                                        ]
-                                                                    }
-                                                                </Badge>
-                                                                {account.username && (
-                                                                    <span>
-                                                                        @
-                                                                        {
-                                                                            account.username
-                                                                        }
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {canManage && (
-                                                        <Dialog>
-                                                            <DialogTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                    <span className="sr-only">
-                                                                        Disconnect
-                                                                    </span>
-                                                                </Button>
-                                                            </DialogTrigger>
-                                                            <DialogContent>
-                                                                <DialogTitle>
-                                                                    Disconnect "
-                                                                    {
-                                                                        account.name
-                                                                    }
-                                                                    "?
-                                                                </DialogTitle>
-                                                                <DialogDescription>
-                                                                    Scheduled
-                                                                    posts in its
-                                                                    social sets
-                                                                    will no
-                                                                    longer go to
-                                                                    this
-                                                                    account. You
-                                                                    can connect
-                                                                    it again
-                                                                    later.
-                                                                </DialogDescription>
-                                                                <DialogFooter className="gap-2">
-                                                                    <DialogClose
-                                                                        asChild
-                                                                    >
-                                                                        <Button variant="secondary">
-                                                                            Cancel
-                                                                        </Button>
-                                                                    </DialogClose>
-                                                                    <Button
-                                                                        variant="destructive"
-                                                                        onClick={() =>
-                                                                            router.delete(
-                                                                                ConnectionController.destroy.url(
-                                                                                    account.id,
-                                                                                ),
-                                                                                {
-                                                                                    preserveScroll: true,
-                                                                                },
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        Disconnect
-                                                                    </Button>
-                                                                </DialogFooter>
-                                                            </DialogContent>
-                                                        </Dialog>
-                                                    )}
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-x-4 gap-y-2 pl-14">
-                                                    {socialSets.map((set) => {
-                                                        const id = `account-${account.id}-set-${set.id}`;
-
-                                                        return (
-                                                            <div
-                                                                key={set.id}
-                                                                className="flex items-center gap-2"
-                                                            >
-                                                                <Checkbox
-                                                                    id={id}
-                                                                    checked={account.social_set_ids.includes(
-                                                                        set.id,
-                                                                    )}
-                                                                    disabled={
-                                                                        !canManage
-                                                                    }
-                                                                    onCheckedChange={(
-                                                                        on,
-                                                                    ) =>
-                                                                        toggleSet(
-                                                                            account,
-                                                                            set.id,
-                                                                            on ===
-                                                                                true,
-                                                                        )
-                                                                    }
-                                                                />
-                                                                <Label
-                                                                    htmlFor={id}
-                                                                    className="font-normal"
-                                                                >
-                                                                    {set.name}
-                                                                </Label>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            )
-                        );
-                    })
+                    groups.map(({ platform, accounts: group }) => (
+                        <section key={platform.key} className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <PlatformIcon
+                                    platform={platform.key}
+                                    className="size-6 rounded-md"
+                                />
+                                <h2 className="text-sm font-medium">
+                                    {platform.label}
+                                </h2>
+                                <Badge variant="secondary">
+                                    {group.length}
+                                </Badge>
+                            </div>
+                            <div className="overflow-hidden rounded-lg border border-border">
+                                {group.map((account) => (
+                                    <AccountRow
+                                        key={account.id}
+                                        account={account}
+                                        socialSets={socialSets}
+                                        canManage={canManage}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    ))
                 )}
             </div>
         </>

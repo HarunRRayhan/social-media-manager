@@ -129,10 +129,10 @@ function signIn($test): void
     $test->actingAs($test->owner)
         ->withSession(['meta_oauth' => ['state' => 'right', 'team_id' => $test->team->id]])
         ->get(route('connect.meta.callback', ['state' => 'right', 'code' => 'abc']))
-        ->assertRedirect(route('connect.meta.pick'));
+        ->assertRedirect(route('connections.index'));
 }
 
-test('the callback saves nothing and sends the user to the picker', function () {
+test('the callback saves nothing and sends the user back to connections to pick', function () {
     signIn($this);
 
     expect($this->team->socialAccounts()->count())->toBe(0)
@@ -158,20 +158,39 @@ test('signing in again drops the previous cached sign-in', function () {
         ->and(session('meta_pick.key'))->not->toBe('old');
 });
 
-test('the picker lists pages and instagram accounts without tokens, ticking only connected ones', function () {
+test('the connections page offers the pending pick without tokens, flagging connected ones', function () {
     SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111']);
     signIn($this);
 
-    $response = $this->actingAs($this->owner)->get(route('connect.meta.pick'))
-        ->assertOk()->assertInertia(fn ($page) => $page->component('team/connections-pick')
-        ->has('pages', 3)
-        ->where('pages.0', ['id' => '111', 'name' => 'Harun Page', 'avatar_url' => 'https://img/p.png', 'connected' => true])
-        ->where('pages.1.connected', false)
-        ->has('instagram', 2)
-        ->where('instagram.0', ['id' => '222', 'name' => 'harun', 'username' => 'harun', 'avatar_url' => 'https://img/i.png', 'connected' => false])
-        ->where('instagram.1.id', '555'));
+    $response = $this->actingAs($this->owner)->get(route('connections.index'))
+        ->assertOk()->assertInertia(fn ($page) => $page->component('team/connections')
+        ->has('pending.pages', 3)
+        ->where('pending.pages.0', ['id' => '111', 'name' => 'Harun Page', 'avatar_url' => 'https://img/p.png', 'connected' => true])
+        ->where('pending.pages.1.connected', false)
+        ->has('pending.instagram', 2)
+        ->where('pending.instagram.0', ['id' => '222', 'name' => 'harun', 'username' => 'harun', 'avatar_url' => 'https://img/i.png', 'connected' => false])
+        ->where('pending.instagram.1.id', '555'));
 
     expect($response->getContent())->not->toContain('page-token');
+});
+
+test('the connections page has no pending pick without a sign-in', function () {
+    $this->actingAs($this->owner)->get(route('connections.index'))
+        ->assertInertia(fn ($page) => $page->where('pending', null));
+});
+
+test('cancelling forgets the pending sign-in', function () {
+    signIn($this);
+    $key = session('meta_pick.key');
+
+    $this->actingAs($this->owner)->delete(route('connect.meta.cancel'))->assertRedirect(route('connections.index'));
+
+    expect(Cache::has('meta-pick:'.$key))->toBeFalse()
+        ->and(session('meta_pick'))->toBeNull();
+    $this->actingAs($this->owner)->get(route('connections.index'))->assertInertia(fn ($page) => $page->where('pending', null));
+    $this->actingAs($this->owner)->post(route('connect.meta.store'), ['facebook' => ['111']])
+        ->assertInertiaFlash('toast.message', 'That Facebook sign-in expired. Please connect again.');
+    expect($this->team->socialAccounts()->count())->toBe(0);
 });
 
 test('storing saves only the picked accounts and subscribes only their pages', function () {
@@ -220,9 +239,7 @@ test('an expired sign-in sends the user back to connections', function () {
     signIn($this);
     Cache::flush();
 
-    $this->actingAs($this->owner)->get(route('connect.meta.pick'))
-        ->assertRedirect(route('connections.index'))
-        ->assertInertiaFlash('toast.message', 'That Facebook sign-in expired. Please connect again.');
+    $this->actingAs($this->owner)->get(route('connections.index'))->assertInertia(fn ($page) => $page->where('pending', null));
     $this->actingAs($this->owner)->post(route('connect.meta.store'), ['facebook' => ['111']])
         ->assertRedirect(route('connections.index'))
         ->assertInertiaFlash('toast.message', 'That Facebook sign-in expired. Please connect again.');
@@ -230,14 +247,16 @@ test('an expired sign-in sends the user back to connections', function () {
     expect($this->team->socialAccounts()->count())->toBe(0);
 });
 
-test('members who cannot manage the team cannot pick or store', function () {
+test('members who cannot manage the team cannot see, cancel or store a pick', function () {
     signIn($this);
     $member = memberOf($this->team, 'member');
 
-    $this->actingAs($member)->get(route('connect.meta.pick'))->assertForbidden();
+    $this->actingAs($member)->get(route('connections.index'))->assertInertia(fn ($page) => $page->where('pending', null));
+    $this->actingAs($member)->delete(route('connect.meta.cancel'))->assertForbidden();
     $this->actingAs($member)->post(route('connect.meta.store'), ['facebook' => ['111']])->assertForbidden();
 
-    expect($this->team->socialAccounts()->count())->toBe(0);
+    expect($this->team->socialAccounts()->count())->toBe(0)
+        ->and(Cache::has('meta-pick:'.session('meta_pick.key')))->toBeTrue();
 });
 
 test('a meta error during the callback is shown, not thrown', function () {
