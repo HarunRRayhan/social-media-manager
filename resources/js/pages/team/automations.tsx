@@ -469,6 +469,7 @@ export default function Automations({
                                                                 asChild
                                                             >
                                                                 <span
+                                                                    role="img"
                                                                     tabIndex={0}
                                                                     aria-label={`${account.name} (${platformLabel(account.provider)})`}
                                                                     className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
