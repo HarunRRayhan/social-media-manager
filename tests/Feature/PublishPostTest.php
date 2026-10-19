@@ -161,12 +161,13 @@ test('a facebook post mixing a video with other media fails clearly', function (
     expect($post->fresh())->status->toBe('failed')->error->toContain('post the video on its own as a Reel');
 });
 
-test('an instagram motion carousel waits for every video child before creating the parent', function () {
+test('an instagram motion carousel waits for every video child, then for the parent, before publishing', function () {
     Sleep::fake();
     Http::fake([
         g('ig1/media') => Http::sequence()->push(['id' => 'k1'])->push(['id' => 'k2'])->push(['id' => 'k3'])->push(['id' => 'parent']),
         g('k1*') => Http::sequence()->push(['status_code' => 'IN_PROGRESS'])->push(['status_code' => 'FINISHED']),
         g('k3*') => ['status_code' => 'FINISHED'],
+        g('parent*') => Http::sequence()->push(['status_code' => 'IN_PROGRESS'])->push(['status_code' => 'FINISHED']),
         g('ig1/media_publish') => ['id' => 'm4'],
         g('m4*') => ['permalink' => 'https://www.instagram.com/p/motion/'],
     ]);
@@ -184,6 +185,10 @@ test('an instagram motion carousel waits for every video child before creating t
     expect($parent)->toBeGreaterThan($lastPoll)
         ->and($requests[$parent]['children'])->toBe('k1,k2,k3')
         ->and($post->fresh()->status)->toBe('published');
+
+    $parentPolls = $requests->filter(fn ($r) => str_starts_with($r->url(), g('parent')))->keys();
+    $publish = $requests->search(fn ($r) => str_contains($r->url(), 'media_publish'));
+    expect($parentPolls)->toHaveCount(2)->and($publish)->toBeGreaterThan($parentPolls->last());
 });
 
 test('an instagram motion carousel with a failed video child is never published', function () {
