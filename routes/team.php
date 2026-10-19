@@ -63,6 +63,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('team/connections/meta/redirect', [MetaConnectionController::class, 'redirect'])->name('connect.meta.redirect');
     // Registered in the Meta app as {APP_URL}/connect/meta/callback, so this path must not change.
     Route::get('connect/meta/callback', [MetaConnectionController::class, 'callback'])->name('connect.meta.callback');
+    Route::get('team/connections/meta/pick', [MetaConnectionController::class, 'pick'])->name('connect.meta.pick');
+    Route::post('team/connections/meta/pick', [MetaConnectionController::class, 'store'])->name('connect.meta.store');
 
     Route::get('team/automations', [CommentAutomationController::class, 'index'])->name('automations.index');
     Route::post('team/automations', [CommentAutomationController::class, 'store'])->name('automations.store');

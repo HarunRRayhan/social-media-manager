@@ -4,6 +4,7 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
@@ -99,7 +100,8 @@ test('a denied login just returns to connections', function () {
     Http::assertNothingSent();
 });
 
-test('the callback stores one account per page and per linked instagram account', function () {
+function fakeMetaLogin(): void
+{
     Http::fake([
         'https://graph.facebook.com/v26.0/oauth/access_token' => Http::sequence()
             ->push(['access_token' => 'short'])
@@ -111,33 +113,131 @@ test('the callback stores one account per page and per linked instagram account'
                 'instagram_business_account' => ['id' => '222', 'username' => 'harun', 'profile_picture_url' => 'https://img/i.png'],
             ],
             ['id' => '333', 'name' => 'Side Page', 'access_token' => 'page-token-2'],
+            [
+                'id' => '444', 'name' => 'Shop Page', 'access_token' => 'page-token-3',
+                'instagram_business_account' => ['id' => '555', 'username' => 'shop'],
+            ],
         ]]),
+        graph('*/subscribed_apps') => Http::response(['success' => true]),
     ]);
+}
 
-    $existing = SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111', 'name' => 'Old name']);
+function signIn($test): void
+{
+    fakeMetaLogin();
 
-    $this->actingAs($this->owner)
-        ->withSession(['meta_oauth' => ['state' => 'right', 'team_id' => $this->team->id]])
+    $test->actingAs($test->owner)
+        ->withSession(['meta_oauth' => ['state' => 'right', 'team_id' => $test->team->id]])
         ->get(route('connect.meta.callback', ['state' => 'right', 'code' => 'abc']))
-        ->assertRedirect(route('connections.index'));
+        ->assertRedirect(route('connect.meta.pick'));
+}
 
-    expect($this->team->socialAccounts()->count())->toBe(3)
-        ->and($existing->fresh()->name)->toBe('Harun Page')
-        ->and($existing->fresh()->access_token)->toBe('page-token-1');
+test('the callback saves nothing and sends the user to the picker', function () {
+    signIn($this);
 
-    $ig = $this->team->socialAccounts()->where('provider', 'instagram')->sole();
-    expect($ig->external_id)->toBe('222')
-        ->and($ig->username)->toBe('harun')
-        ->and($ig->access_token)->toBe('page-token-1')
-        ->and($ig->meta)->toBe(['page_id' => '111']);
+    expect($this->team->socialAccounts()->count())->toBe(0)
+        ->and(session('meta_pick.team_id'))->toBe($this->team->id);
 
-    // Stored encrypted, never in plain text.
-    expect(DB::table('social_accounts')->where('id', $ig->id)->value('access_token'))->not->toBe('page-token-1');
+    // The cached candidates are encrypted.
+    expect(Cache::get('meta-pick:'.session('meta_pick.key')))->toBeString()->not->toContain('page-token-1');
 
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'subscribed_apps'));
     Http::assertSent(fn ($request) => $request->method() === 'POST' && ($request['fb_exchange_token'] ?? null) === 'short' && $request['client_secret'] === 'app-secret');
     Http::assertSent(fn ($request) => str_contains($request->url(), 'me/accounts') && $request->hasHeader('Authorization', 'Bearer long'));
     // Secrets and tokens never travel in a URL.
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'app-secret') || str_contains($request->url(), 'access_token=') || str_contains($request->url(), 'long'));
+});
+
+test('signing in again drops the previous cached sign-in', function () {
+    Cache::put('meta-pick:old', 'stale', now()->addMinutes(15));
+    $this->withSession(['meta_pick' => ['key' => 'old', 'team_id' => $this->team->id]]);
+
+    signIn($this);
+
+    expect(Cache::has('meta-pick:old'))->toBeFalse()
+        ->and(session('meta_pick.key'))->not->toBe('old');
+});
+
+test('the picker lists pages and instagram accounts without tokens, ticking only connected ones', function () {
+    SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111']);
+    signIn($this);
+
+    $response = $this->actingAs($this->owner)->get(route('connect.meta.pick'))
+        ->assertOk()->assertInertia(fn ($page) => $page->component('team/connections-pick')
+        ->has('pages', 3)
+        ->where('pages.0', ['id' => '111', 'name' => 'Harun Page', 'avatar_url' => 'https://img/p.png', 'connected' => true])
+        ->where('pages.1.connected', false)
+        ->has('instagram', 2)
+        ->where('instagram.0', ['id' => '222', 'name' => 'harun', 'username' => 'harun', 'avatar_url' => 'https://img/i.png', 'connected' => false])
+        ->where('instagram.1.id', '555'));
+
+    expect($response->getContent())->not->toContain('page-token');
+});
+
+test('storing saves only the picked accounts and subscribes only their pages', function () {
+    $existing = SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111', 'name' => 'Old name']);
+    signIn($this);
+
+    $this->actingAs($this->owner)
+        ->post(route('connect.meta.store'), ['facebook' => ['111'], 'instagram' => ['555']])
+        ->assertRedirect(route('connections.index'))
+        ->assertInertiaFlash('toast.message', 'Connected 2 accounts.');
+
+    expect($this->team->socialAccounts()->count())->toBe(2)
+        ->and($existing->fresh()->name)->toBe('Harun Page')
+        ->and($existing->fresh()->access_token)->toBe('page-token-1');
+
+    $ig = $this->team->socialAccounts()->where('provider', 'instagram')->sole();
+    expect($ig->external_id)->toBe('555')
+        ->and($ig->username)->toBe('shop')
+        ->and($ig->access_token)->toBe('page-token-3')
+        ->and($ig->meta)->toBe(['page_id' => '444']);
+
+    // Stored encrypted, never in plain text.
+    expect(DB::table('social_accounts')->where('id', $ig->id)->value('access_token'))->not->toBe('page-token-3');
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '111/subscribed_apps'));
+    Http::assertSent(fn ($request) => str_contains($request->url(), '444/subscribed_apps'));
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '333/subscribed_apps'));
+
+    // The sign-in is used up.
+    $this->actingAs($this->owner)->post(route('connect.meta.store'), ['facebook' => ['333']])
+        ->assertInertiaFlash('toast.message', 'That Facebook sign-in expired. Please connect again.');
+    expect($this->team->socialAccounts()->count())->toBe(2);
+});
+
+test('storing refuses ids facebook did not return, or an empty pick', function () {
+    signIn($this);
+
+    $this->actingAs($this->owner)->post(route('connect.meta.store'), ['facebook' => ['999']])->assertSessionHasErrors('facebook.0');
+    $this->actingAs($this->owner)->post(route('connect.meta.store'), ['instagram' => ['111']])->assertSessionHasErrors('instagram.0');
+    $this->actingAs($this->owner)->post(route('connect.meta.store'), [])->assertSessionHasErrors('facebook');
+
+    expect($this->team->socialAccounts()->count())->toBe(0);
+});
+
+test('an expired sign-in sends the user back to connections', function () {
+    signIn($this);
+    Cache::flush();
+
+    $this->actingAs($this->owner)->get(route('connect.meta.pick'))
+        ->assertRedirect(route('connections.index'))
+        ->assertInertiaFlash('toast.message', 'That Facebook sign-in expired. Please connect again.');
+    $this->actingAs($this->owner)->post(route('connect.meta.store'), ['facebook' => ['111']])
+        ->assertRedirect(route('connections.index'))
+        ->assertInertiaFlash('toast.message', 'That Facebook sign-in expired. Please connect again.');
+
+    expect($this->team->socialAccounts()->count())->toBe(0);
+});
+
+test('members who cannot manage the team cannot pick or store', function () {
+    signIn($this);
+    $member = memberOf($this->team, 'member');
+
+    $this->actingAs($member)->get(route('connect.meta.pick'))->assertForbidden();
+    $this->actingAs($member)->post(route('connect.meta.store'), ['facebook' => ['111']])->assertForbidden();
+
+    expect($this->team->socialAccounts()->count())->toBe(0);
 });
 
 test('a meta error during the callback is shown, not thrown', function () {
