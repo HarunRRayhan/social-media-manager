@@ -13,11 +13,10 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-use Inertia\Response;
 use RuntimeException;
 
 /**
- * Facebook Login for the team: the user picks which granted Pages become Facebook accounts,
+ * Facebook Login for the team: on the Connections page the user picks which granted Pages become Facebook accounts,
  * and which Instagram professional accounts linked to those Pages become Instagram accounts.
  */
 class MetaConnectionController extends Controller
@@ -107,30 +106,32 @@ class MetaConnectionController extends Controller
         Cache::put('meta-pick:'.$key, encrypt($pages), now()->addMinutes(15));
         $request->session()->put('meta_pick', ['key' => $key, 'team_id' => $team->id]);
 
-        return to_route('connect.meta.pick');
+        return to_route('connections.index');
     }
 
     /**
-     * Let the user choose which of the granted Pages and Instagram accounts to connect.
+     * The pending sign-in's Pages and Instagram accounts for the Connections page's picker, without tokens.
+     *
+     * @return array{pages: array<int, array<string, mixed>>, instagram: array<int, array<string, mixed>>}|null
      */
-    public function pick(Request $request): Response|RedirectResponse
+    public static function candidates(Request $request, Team $team): ?array
     {
-        [$team, $pages] = $this->pending($request);
+        $pages = $request->session()->get('meta_pick.team_id') === $team->id ? self::cachedPages($request) : null;
 
         if ($pages === null) {
-            return $this->expired();
+            return null;
         }
 
         $connected = $team->socialAccounts()->get(['provider', 'external_id'])
             ->groupBy('provider')->map->pluck('external_id');
 
-        return Inertia::render('team/connections-pick', [
+        return [
             'pages' => collect($pages)->map(fn (array $page) => [
                 'id' => (string) $page['id'],
                 'name' => $page['name'],
                 'avatar_url' => $page['picture']['data']['url'] ?? null,
                 'connected' => $connected->get('facebook', collect())->contains((string) $page['id']),
-            ])->values(),
+            ])->values()->all(),
             'instagram' => collect($pages)->filter(fn (array $page) => isset($page['instagram_business_account']['id']))
                 ->map(fn (array $page) => [
                     'id' => (string) $page['instagram_business_account']['id'],
@@ -138,8 +139,20 @@ class MetaConnectionController extends Controller
                     'username' => $page['instagram_business_account']['username'] ?? null,
                     'avatar_url' => $page['instagram_business_account']['profile_picture_url'] ?? null,
                     'connected' => $connected->get('instagram', collect())->contains((string) $page['instagram_business_account']['id']),
-                ])->values(),
-        ]);
+                ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Drop the pending sign-in, so the picker does not open again.
+     */
+    public function cancel(Request $request): RedirectResponse
+    {
+        Gate::authorize('manage', $request->user()->currentTeam());
+        $this->pending($request);
+        $this->forget($request);
+
+        return to_route('connections.index');
     }
 
     /**
@@ -202,8 +215,7 @@ class MetaConnectionController extends Controller
             return $count;
         });
 
-        Cache::forget('meta-pick:'.$request->session()->pull('meta_pick.key'));
-        $request->session()->forget('meta_pick');
+        $this->forget($request);
 
         // Best effort: comment automations need it, publishing does not. The Automations page can retry it.
         foreach ($chosen as $page) {
@@ -228,17 +240,35 @@ class MetaConnectionController extends Controller
      */
     private function pending(Request $request): array
     {
-        $flow = $request->session()->get('meta_pick');
-        $cached = $flow ? Cache::get('meta-pick:'.$flow['key']) : null;
+        $pages = self::cachedPages($request);
 
-        if (! $cached) {
+        if ($pages === null) {
             return [null, null];
         }
 
-        $team = $request->user()->teams()->whereKey($flow['team_id'])->first();
+        $team = $request->user()->teams()->whereKey($request->session()->get('meta_pick.team_id'))->first();
         abort_unless($team && $request->user()->can('manage', $team), 403);
 
-        return [$team, decrypt($cached)];
+        return [$team, $pages];
+    }
+
+    /**
+     * The Pages (with tokens) of the sign-in in this session, or null once it expired or there is none.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private static function cachedPages(Request $request): ?array
+    {
+        $key = $request->session()->get('meta_pick.key');
+        $cached = $key ? Cache::get('meta-pick:'.$key) : null;
+
+        return $cached ? decrypt($cached) : null;
+    }
+
+    private function forget(Request $request): void
+    {
+        Cache::forget('meta-pick:'.$request->session()->pull('meta_pick.key'));
+        $request->session()->forget('meta_pick');
     }
 
     private function expired(): RedirectResponse
