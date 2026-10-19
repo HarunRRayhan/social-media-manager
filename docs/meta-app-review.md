@@ -21,13 +21,13 @@ Paste one block per permission under Use cases → Permissions and features → 
 |---|---|
 | `pages_show_list` | Lists the Pages the person manages so they can pick which ones to connect to SMM. |
 | `business_management` | Lists Pages and Instagram accounts that the person manages through a business portfolio, so those can be picked too. |
-| `pages_read_engagement` | Reads the connected Page's published posts so the person can limit an automation to specific posts. |
+| `pages_read_engagement` | Reads the Page's name, picture and access token when the person connects it, so SMM can act for that Page. |
 | `pages_manage_posts` | Publishes the posts the person writes and schedules in SMM to their Page, at the time they choose. |
 | `pages_manage_metadata` | Subscribes the connected Page to the app's webhooks, so SMM is told when someone comments on a Page post. |
 | `pages_read_user_content` | Reads the comment a person left on the Page's post (from the webhook) to check it for the automation's keyword. |
 | `pages_messaging` | Sends one private reply (a Messenger message) to the person who commented the keyword, with the message the Page owner wrote. |
 | `pages_manage_engagement` | Posts the optional public reply under that comment, for example "Sent you a DM". |
-| `instagram_basic` | Reads the connected Instagram professional account's username and picture, and its posts for post selection. |
+| `instagram_basic` | Reads the connected Instagram professional account's username and picture, and the link to each post SMM publishes. |
 | `instagram_content_publish` | Publishes the posts the person schedules in SMM to their Instagram professional account. |
 | `instagram_manage_comments` | Receives comment webhooks for the account's posts and posts the optional public reply. |
 | `instagram_manage_messages` | Sends one private reply (Instagram DM) to the person who commented the keyword. |
