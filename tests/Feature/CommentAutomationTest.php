@@ -309,3 +309,19 @@ test('the webhook skips csrf, which the web group enforces in production', funct
 
     expect(app('router')->gatherRouteMiddleware($route))->not->toContain(PreventRequestForgery::class);
 });
+
+it('refuses an active automation that would answer the same comments as another', function () {
+    automationFor($this->page, ['name' => 'Guide', 'keywords' => ['info'], 'post_remote_ids' => ['page1_5']]);
+    $data = ['social_account_ids' => [$this->page->id], 'type' => 'comment_to_dm', 'name' => 'Other', 'keywords' => ['INFORMATION'], 'dm_message' => 'Hi', 'active' => true];
+
+    // All posts overlaps page1_5; "INFORMATION" contains "info".
+    $this->actingAs($this->owner)->post('/team/automations', $data)->assertSessionHasErrors('keywords');
+    // Same keyword on a different post is fine, and so is an inactive one on the same post.
+    $this->actingAs($this->owner)->post('/team/automations', [...$data, 'post_remote_ids' => ['page1_6']])->assertSessionHasNoErrors();
+    $this->actingAs($this->owner)->post('/team/automations', [...$data, 'name' => 'Off', 'active' => false])->assertSessionHasNoErrors();
+    // Turning that one on now clashes.
+    $off = $this->team->commentAutomations()->where('name', 'Off')->sole();
+    $this->actingAs($this->owner)->put("/team/automations/{$off->id}", [...$data, 'name' => 'Off', 'active' => true])->assertSessionHasErrors('keywords');
+    // A different account does not clash.
+    $this->actingAs($this->owner)->post('/team/automations', [...$data, 'name' => 'IG', 'social_account_ids' => [$this->ig->id]])->assertSessionHasNoErrors();
+});

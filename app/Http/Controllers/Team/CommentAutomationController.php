@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,6 +68,7 @@ class CommentAutomationController extends Controller
         Gate::authorize('manage', $team);
 
         $data = $this->validated($request, $team);
+        $this->ensureNoClash($team, $data);
 
         DB::transaction(fn () => $team->commentAutomations()->create(Arr::except($data, 'social_account_ids'))
             ->accounts()->sync($data['social_account_ids']));
@@ -81,6 +83,7 @@ class CommentAutomationController extends Controller
 
         $automation = $team->commentAutomations()->findOrFail($automation);
         $data = $this->validated($request, $team);
+        $this->ensureNoClash($team, $data, $automation->id);
 
         DB::transaction(function () use ($automation, $data) {
             $automation->update(Arr::except($data, 'social_account_ids'));
@@ -121,6 +124,33 @@ class CommentAutomationController extends Controller
 
         // Null means every post; picking posts but none is refused above.
         return [...$data, 'post_remote_ids' => $data['post_remote_ids'] ?? null];
+    }
+
+    /**
+     * Refuse an active automation that would answer the same comments as another active one.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function ensureNoClash(Team $team, array $data, ?int $ignore = null): void
+    {
+        if (! ($data['active'] ?? true)) {
+            return;
+        }
+
+        $others = $team->commentAutomations()
+            ->where('type', $data['type'])
+            ->where('active', true)
+            ->when($ignore, fn ($query) => $query->whereKeyNot($ignore))
+            ->whereHas('accounts', fn ($query) => $query->whereIn('social_accounts.id', $data['social_account_ids']))
+            ->get();
+
+        foreach ($others as $other) {
+            $keyword = $other->clashingKeyword($data['keywords'], $data['post_remote_ids']);
+
+            if ($keyword !== null) {
+                throw ValidationException::withMessages(['keywords' => __('":keyword" would also trigger ":name" on the same account and post. Use a different keyword or different posts, or turn ":name" off.', ['keyword' => $keyword, 'name' => $other->name])]);
+            }
+        }
     }
 
     private function back(string $message): RedirectResponse
