@@ -9,6 +9,7 @@ const pages: Record<Page, { title: string; body: string[] }> = {
         body: [
             'SMM is a personal tool for scheduling and publishing posts to social accounts its team members connect.',
             'When you connect a Facebook Page, Instagram account or Threads profile, SMM stores the account name, its ID and an access token. Tokens are encrypted at rest and used only to publish your posts, read comments on them and send the replies or direct messages you set up.',
+            'For automated replies it keeps only the comment ID and commenter ID, not the comment text.',
             'SMM stores the posts, media links and schedules you create, and your email address for signing in. It does not sell or share any of this data, and it does not use it for advertising.',
             'Questions: sm@harun.dev.',
         ],
