@@ -676,6 +676,19 @@ export default function Automations({
                             accounts={accounts}
                             posts={posts}
                         />
+                        <Button
+                            variant="outline"
+                            disabled={accounts.length === 0}
+                            onClick={() =>
+                                router.post(
+                                    CommentAutomationController.webhooks.url(),
+                                    {},
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            Check webhooks
+                        </Button>
                     </div>
                 )}
 

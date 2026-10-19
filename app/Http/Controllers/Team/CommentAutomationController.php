@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 /**
  * Comment-to-DM automations for the current team's Facebook Pages and Instagram accounts.
@@ -101,6 +102,38 @@ class CommentAutomationController extends Controller
     }
 
     /**
+     * Re-subscribe every connected Page (and each Instagram account's Page) to the app's webhooks.
+     */
+    public function webhooks(Request $request): RedirectResponse
+    {
+        $team = $request->user()->currentTeam();
+        Gate::authorize('manage', $team);
+
+        // Page id => Page token; an Instagram account carries its Page's id and token.
+        $pages = $team->socialAccounts()->whereIn('provider', ['facebook', 'instagram'])->get()
+            ->mapWithKeys(fn ($account) => [(string) ($account->provider === 'facebook' ? $account->external_id : ($account->meta['page_id'] ?? '')) => $account->access_token])
+            ->filter(fn ($token, $pageId) => $pageId !== '');
+
+        $failed = [];
+
+        foreach ($pages as $pageId => $token) {
+            try {
+                MetaConnectionController::subscribe((string) $pageId, $token);
+            } catch (RuntimeException $e) {
+                $failed[] = $e->getMessage();
+            }
+        }
+
+        if ($pages->isEmpty()) {
+            return $this->back(__('No Facebook Page is connected.'), 'error');
+        }
+
+        return $failed === []
+            ? $this->back(trans_choice('{1} Webhooks are on for 1 Page.|[2,*] Webhooks are on for :count Pages.', $pages->count()))
+            : $this->back(__('Meta refused: :error', ['error' => implode(' ', array_unique($failed))]), 'error');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function validated(Request $request, Team $team): array
@@ -123,9 +156,9 @@ class CommentAutomationController extends Controller
         return [...$data, 'post_remote_ids' => $data['post_remote_ids'] ?? null];
     }
 
-    private function back(string $message): RedirectResponse
+    private function back(string $message, string $type = 'success'): RedirectResponse
     {
-        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
+        Inertia::flash('toast', ['type' => $type, 'message' => $message]);
 
         return to_route('automations.index');
     }

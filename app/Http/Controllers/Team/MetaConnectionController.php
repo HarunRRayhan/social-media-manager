@@ -217,7 +217,7 @@ class MetaConnectionController extends Controller
 
         $this->forget($request);
 
-        // Best effort: comment automations need it, publishing does not. The Automations page can retry it.
+        // Best effort: comment automations need it, publishing does not. Automations → Check webhooks retries it.
         foreach ($chosen as $page) {
             rescue(fn () => self::subscribe((string) $page['id'], $page['access_token']));
         }
@@ -228,7 +228,7 @@ class MetaConnectionController extends Controller
     /**
      * Subscribe a Page to the app's webhooks, so its comments (and its Instagram account's) reach /webhooks/meta.
      */
-    private static function subscribe(string $pageId, string $pageToken): void
+    public static function subscribe(string $pageId, string $pageToken): void
     {
         MetaGraph::post("{$pageId}/subscribed_apps", $pageToken, ['subscribed_fields' => 'feed,messages']);
     }
