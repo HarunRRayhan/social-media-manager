@@ -1,5 +1,5 @@
 import { Form, Head, router } from '@inertiajs/react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Power, Trash2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import CommentAutomationController from '@/actions/App/Http/Controllers/Team/CommentAutomationController';
 import Heading from '@/components/heading';
@@ -8,6 +8,13 @@ import PlatformIcon from '@/components/platform-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Tooltip,
     TooltipContent,
@@ -241,20 +248,171 @@ function TypePicker({ onPick }: { onPick: (type: AutomationTypeKey) => void }) {
     );
 }
 
+const statusDots = {
+    active: { label: 'Active', dot: 'bg-green-500' },
+    disabled: { label: 'Disabled', dot: 'bg-gray-400' },
+    warning: { label: 'Warning', dot: 'bg-yellow-500' },
+    error: { label: 'Error', dot: 'bg-red-500' },
+};
+
+// The latest run decides: failed is an error, skipped is a warning.
+function automationStatus(automation: Automation) {
+    const latest = automation.runs[0];
+
+    if (!automation.active) {
+        return { ...statusDots.disabled, detail: null };
+    }
+
+    if (latest?.status === 'failed') {
+        return { ...statusDots.error, detail: latest.error };
+    }
+
+    if (latest?.status === 'skipped') {
+        return { ...statusDots.warning, detail: latest.error };
+    }
+
+    return { ...statusDots.active, detail: null };
+}
+
+function StatusDot({ automation }: { automation: Automation }) {
+    const status = automationStatus(automation);
+    const badge = (
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            <span aria-hidden className={`size-2 rounded-full ${status.dot}`} />
+            {status.label}
+        </span>
+    );
+
+    if (!status.detail) {
+        return badge;
+    }
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span tabIndex={0} className="outline-none">
+                    {badge}
+                </span>
+            </TooltipTrigger>
+            <TooltipContent>{status.detail}</TooltipContent>
+        </Tooltip>
+    );
+}
+
+function RowActions({
+    automation,
+    accounts,
+    posts,
+}: {
+    automation: Automation;
+    accounts: Account[];
+    posts: PublishedPost[];
+}) {
+    const [editing, setEditing] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    return (
+        <>
+            <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Actions</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setEditing(true)}>
+                        <Pencil />
+                        Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        onSelect={() =>
+                            router.put(
+                                CommentAutomationController.update.url(
+                                    automation.id,
+                                ),
+                                {
+                                    ...payload(automation),
+                                    active: !automation.active,
+                                },
+                                { preserveScroll: true },
+                            )
+                        }
+                    >
+                        <Power />
+                        {automation.active ? 'Deactivate' : 'Activate'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setDeleting(true)}
+                    >
+                        <Trash2 />
+                        Delete
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            <AutomationDialog
+                open={editing}
+                onOpenChange={setEditing}
+                title="Edit automation"
+                description="Comments already answered are not answered again."
+                accounts={accounts}
+                posts={posts}
+                automation={automation}
+            />
+
+            <Dialog open={deleting} onOpenChange={setDeleting}>
+                <DialogContent>
+                    <DialogTitle>Delete "{automation.name}"?</DialogTitle>
+                    <DialogDescription>
+                        Its run history is deleted too.
+                    </DialogDescription>
+                    <DialogFooter className="gap-2">
+                        <DialogClose asChild>
+                            <Button variant="secondary">Cancel</Button>
+                        </DialogClose>
+                        <Button
+                            variant="destructive"
+                            onClick={() =>
+                                router.delete(
+                                    CommentAutomationController.destroy.url(
+                                        automation.id,
+                                    ),
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
 function AutomationDialog({
     trigger,
+    open: controlledOpen,
+    onOpenChange,
     title,
     description,
     ...form
 }: {
-    trigger: React.ReactNode;
+    trigger?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
     title: string;
     description: string;
     accounts: Account[];
     posts: PublishedPost[];
     automation?: Automation;
 }) {
-    const [open, setOpen] = useState(false);
+    const [ownOpen, setOwnOpen] = useState(false);
+    const open = controlledOpen ?? ownOpen;
+    const setOpen = onOpenChange ?? setOwnOpen;
     // A new automation starts with its type; an existing one keeps its own.
     const [type, setType] = useState<AutomationTypeKey | null>(
         form.automation?.type ?? null,
@@ -271,7 +429,7 @@ function AutomationDialog({
                 }
             }}
         >
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
+            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
                 {type === null ? (
                     <>
@@ -627,124 +785,20 @@ export default function Automations({
                                                     : 'All posts'}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <Checkbox
-                                                        id={`active-${automation.id}`}
-                                                        checked={
-                                                            automation.active
-                                                        }
-                                                        disabled={!canManage}
-                                                        onCheckedChange={(on) =>
-                                                            router.put(
-                                                                CommentAutomationController.update.url(
-                                                                    automation.id,
-                                                                ),
-                                                                {
-                                                                    ...payload(
-                                                                        automation,
-                                                                    ),
-                                                                    active:
-                                                                        on ===
-                                                                        true,
-                                                                },
-                                                                {
-                                                                    preserveScroll: true,
-                                                                },
-                                                            )
-                                                        }
-                                                    />
-                                                    <Label
-                                                        htmlFor={`active-${automation.id}`}
-                                                        className="font-normal"
-                                                    >
-                                                        Active
-                                                    </Label>
-                                                </div>
+                                                <StatusDot
+                                                    automation={automation}
+                                                />
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex justify-end">
                                                     {canManage && (
-                                                        <>
-                                                            <AutomationDialog
-                                                                trigger={
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                    >
-                                                                        <Pencil className="h-4 w-4" />
-                                                                        <span className="sr-only">
-                                                                            Edit
-                                                                        </span>
-                                                                    </Button>
-                                                                }
-                                                                title="Edit automation"
-                                                                description="Comments already answered are not answered again."
-                                                                accounts={
-                                                                    accounts
-                                                                }
-                                                                posts={posts}
-                                                                automation={
-                                                                    automation
-                                                                }
-                                                            />
-
-                                                            <Dialog>
-                                                                <DialogTrigger
-                                                                    asChild
-                                                                >
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                        <span className="sr-only">
-                                                                            Delete
-                                                                        </span>
-                                                                    </Button>
-                                                                </DialogTrigger>
-                                                                <DialogContent>
-                                                                    <DialogTitle>
-                                                                        Delete "
-                                                                        {
-                                                                            automation.name
-                                                                        }
-                                                                        "?
-                                                                    </DialogTitle>
-                                                                    <DialogDescription>
-                                                                        Its run
-                                                                        history
-                                                                        is
-                                                                        deleted
-                                                                        too.
-                                                                    </DialogDescription>
-                                                                    <DialogFooter className="gap-2">
-                                                                        <DialogClose
-                                                                            asChild
-                                                                        >
-                                                                            <Button variant="secondary">
-                                                                                Cancel
-                                                                            </Button>
-                                                                        </DialogClose>
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            onClick={() =>
-                                                                                router.delete(
-                                                                                    CommentAutomationController.destroy.url(
-                                                                                        automation.id,
-                                                                                    ),
-                                                                                    {
-                                                                                        preserveScroll: true,
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            Delete
-                                                                        </Button>
-                                                                    </DialogFooter>
-                                                                </DialogContent>
-                                                            </Dialog>
-                                                        </>
+                                                        <RowActions
+                                                            automation={
+                                                                automation
+                                                            }
+                                                            accounts={accounts}
+                                                            posts={posts}
+                                                        />
                                                     )}
                                                 </div>
                                             </td>
