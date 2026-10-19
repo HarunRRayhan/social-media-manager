@@ -25,6 +25,11 @@ return [
         'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
     ],
 
+    // A secret sign-in link for app store reviewers, /review-login/{token}, into a demo account. Unset = off.
+    'review' => [
+        'token' => env('REVIEW_LOGIN_TOKEN'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
