@@ -1,6 +1,6 @@
 import { Form, Head, router } from '@inertiajs/react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import CommentAutomationController from '@/actions/App/Http/Controllers/Team/CommentAutomationController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -447,211 +447,275 @@ export default function Automations({
                             : 'No automations yet.'}
                     </p>
                 ) : (
-                    <div className="overflow-hidden rounded-lg border border-border">
-                        {automations.map((automation) => (
-                            <div
-                                key={automation.id}
-                                className="space-y-3 border-b p-4 last:border-b-0"
-                            >
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <p className="font-medium tracking-tight">
-                                            {automation.name}
-                                        </p>
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
-                                            <div className="flex items-center gap-1">
-                                                {automation.accounts.map(
-                                                    (account) => (
-                                                        <Tooltip
-                                                            key={account.id}
-                                                        >
-                                                            <TooltipTrigger
-                                                                asChild
+                    <div className="overflow-x-auto rounded-lg border border-border">
+                        <table className="w-full text-sm">
+                            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                                <tr>
+                                    <th className="px-4 py-2 font-medium">
+                                        Keywords
+                                    </th>
+                                    <th className="px-4 py-2 font-medium">
+                                        Name
+                                    </th>
+                                    <th className="px-4 py-2 font-medium">
+                                        Accounts
+                                    </th>
+                                    <th className="px-4 py-2 font-medium">
+                                        Posts
+                                    </th>
+                                    <th className="px-4 py-2 font-medium">
+                                        Status
+                                    </th>
+                                    <th className="px-4 py-2 font-medium">
+                                        <span className="sr-only">Actions</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {automations.map((automation) => (
+                                    <Fragment key={automation.id}>
+                                        <tr className="border-t align-middle">
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {automation.keywords.map(
+                                                        (keyword) => (
+                                                            <Badge
+                                                                key={keyword}
+                                                                className="text-sm"
                                                             >
-                                                                <span
-                                                                    role="img"
-                                                                    tabIndex={0}
-                                                                    aria-label={`${account.name} (${platformLabel(account.provider)})`}
-                                                                    className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                                {keyword}
+                                                            </Badge>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {automation.name}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1">
+                                                    {automation.accounts.map(
+                                                        (account) => (
+                                                            <Tooltip
+                                                                key={account.id}
+                                                            >
+                                                                <TooltipTrigger
+                                                                    asChild
                                                                 >
-                                                                    <PlatformIcon
-                                                                        platform={
-                                                                            account.provider
+                                                                    <span
+                                                                        role="img"
+                                                                        tabIndex={
+                                                                            0
                                                                         }
-                                                                        className="size-6 rounded-md"
-                                                                    />
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                {account.name} ·{' '}
-                                                                {platformLabel(
-                                                                    account.provider,
-                                                                )}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    ),
-                                                )}
-                                            </div>
-                                            <span>
-                                                ·{' '}
+                                                                        aria-label={`${account.name} (${platformLabel(account.provider)})`}
+                                                                        className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                                    >
+                                                                        <PlatformIcon
+                                                                            platform={
+                                                                                account.provider
+                                                                            }
+                                                                            className="size-6 rounded-md"
+                                                                        />
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {
+                                                                        account.name
+                                                                    }{' '}
+                                                                    ·{' '}
+                                                                    {platformLabel(
+                                                                        account.provider,
+                                                                    )}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                                                 {automation.post_remote_ids
                                                     ? `${automation.post_remote_ids.length} ${automation.post_remote_ids.length === 1 ? 'post' : 'posts'}`
                                                     : 'All posts'}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {automation.keywords.map(
-                                                (keyword) => (
-                                                    <Badge
-                                                        key={keyword}
-                                                        variant="outline"
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        id={`active-${automation.id}`}
+                                                        checked={
+                                                            automation.active
+                                                        }
+                                                        disabled={!canManage}
+                                                        onCheckedChange={(on) =>
+                                                            router.put(
+                                                                CommentAutomationController.update.url(
+                                                                    automation.id,
+                                                                ),
+                                                                {
+                                                                    ...payload(
+                                                                        automation,
+                                                                    ),
+                                                                    active:
+                                                                        on ===
+                                                                        true,
+                                                                },
+                                                                {
+                                                                    preserveScroll: true,
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                    <Label
+                                                        htmlFor={`active-${automation.id}`}
+                                                        className="font-normal"
                                                     >
-                                                        {keyword}
-                                                    </Badge>
-                                                ),
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-1">
-                                        <div className="mr-2 flex items-center gap-2">
-                                            <Checkbox
-                                                id={`active-${automation.id}`}
-                                                checked={automation.active}
-                                                disabled={!canManage}
-                                                onCheckedChange={(on) =>
-                                                    router.put(
-                                                        CommentAutomationController.update.url(
-                                                            automation.id,
-                                                        ),
-                                                        {
-                                                            ...payload(
-                                                                automation,
-                                                            ),
-                                                            active: on === true,
-                                                        },
-                                                        {
-                                                            preserveScroll: true,
-                                                        },
-                                                    )
-                                                }
-                                            />
-                                            <Label
-                                                htmlFor={`active-${automation.id}`}
-                                                className="font-normal"
-                                            >
-                                                Active
-                                            </Label>
-                                        </div>
-
-                                        {canManage && (
-                                            <>
-                                                <AutomationDialog
-                                                    trigger={
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                            <span className="sr-only">
-                                                                Edit
-                                                            </span>
-                                                        </Button>
-                                                    }
-                                                    title="Edit automation"
-                                                    description="Comments already answered are not answered again."
-                                                    accounts={accounts}
-                                                    posts={posts}
-                                                    automation={automation}
-                                                />
-
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                            <span className="sr-only">
-                                                                Delete
-                                                            </span>
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                        <DialogTitle>
-                                                            Delete "
-                                                            {automation.name}"?
-                                                        </DialogTitle>
-                                                        <DialogDescription>
-                                                            Its run history is
-                                                            deleted too.
-                                                        </DialogDescription>
-                                                        <DialogFooter className="gap-2">
-                                                            <DialogClose
-                                                                asChild
-                                                            >
-                                                                <Button variant="secondary">
-                                                                    Cancel
-                                                                </Button>
-                                                            </DialogClose>
-                                                            <Button
-                                                                variant="destructive"
-                                                                onClick={() =>
-                                                                    router.delete(
-                                                                        CommentAutomationController.destroy.url(
-                                                                            automation.id,
-                                                                        ),
-                                                                        {
-                                                                            preserveScroll: true,
-                                                                        },
-                                                                    )
+                                                        Active
+                                                    </Label>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex justify-end">
+                                                    {canManage && (
+                                                        <>
+                                                            <AutomationDialog
+                                                                trigger={
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                    >
+                                                                        <Pencil className="h-4 w-4" />
+                                                                        <span className="sr-only">
+                                                                            Edit
+                                                                        </span>
+                                                                    </Button>
                                                                 }
-                                                            >
-                                                                Delete
-                                                            </Button>
-                                                        </DialogFooter>
-                                                    </DialogContent>
-                                                </Dialog>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
+                                                                title="Edit automation"
+                                                                description="Comments already answered are not answered again."
+                                                                accounts={
+                                                                    accounts
+                                                                }
+                                                                posts={posts}
+                                                                automation={
+                                                                    automation
+                                                                }
+                                                            />
 
-                                {automation.runs.length > 0 && (
-                                    <div className="space-y-1 text-sm">
-                                        <p className="text-xs font-medium text-muted-foreground uppercase">
-                                            Recent runs
-                                        </p>
-                                        {automation.runs.map((run) => (
-                                            <div
-                                                key={run.id}
-                                                className="flex flex-wrap items-center gap-2"
-                                            >
-                                                <Badge
-                                                    variant={
-                                                        statusVariant[
-                                                            run.status
-                                                        ]
-                                                    }
+                                                            <Dialog>
+                                                                <DialogTrigger
+                                                                    asChild
+                                                                >
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                        <span className="sr-only">
+                                                                            Delete
+                                                                        </span>
+                                                                    </Button>
+                                                                </DialogTrigger>
+                                                                <DialogContent>
+                                                                    <DialogTitle>
+                                                                        Delete "
+                                                                        {
+                                                                            automation.name
+                                                                        }
+                                                                        "?
+                                                                    </DialogTitle>
+                                                                    <DialogDescription>
+                                                                        Its run
+                                                                        history
+                                                                        is
+                                                                        deleted
+                                                                        too.
+                                                                    </DialogDescription>
+                                                                    <DialogFooter className="gap-2">
+                                                                        <DialogClose
+                                                                            asChild
+                                                                        >
+                                                                            <Button variant="secondary">
+                                                                                Cancel
+                                                                            </Button>
+                                                                        </DialogClose>
+                                                                        <Button
+                                                                            variant="destructive"
+                                                                            onClick={() =>
+                                                                                router.delete(
+                                                                                    CommentAutomationController.destroy.url(
+                                                                                        automation.id,
+                                                                                    ),
+                                                                                    {
+                                                                                        preserveScroll: true,
+                                                                                    },
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Delete
+                                                                        </Button>
+                                                                    </DialogFooter>
+                                                                </DialogContent>
+                                                            </Dialog>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {automation.runs.length > 0 && (
+                                            <tr>
+                                                <td
+                                                    colSpan={6}
+                                                    className="px-4 pb-3"
                                                 >
-                                                    {run.status}
-                                                </Badge>
-                                                <span className="text-muted-foreground">
-                                                    {run.created_at} · comment{' '}
-                                                    {run.comment_id}
-                                                </span>
-                                                {run.error && (
-                                                    <span className="text-destructive">
-                                                        {run.error}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                                    <div className="space-y-1 text-sm">
+                                                        <p className="text-xs font-medium text-muted-foreground uppercase">
+                                                            Recent runs
+                                                        </p>
+                                                        {automation.runs.map(
+                                                            (run) => (
+                                                                <div
+                                                                    key={run.id}
+                                                                    className="flex flex-wrap items-center gap-2"
+                                                                >
+                                                                    <Badge
+                                                                        variant={
+                                                                            statusVariant[
+                                                                                run
+                                                                                    .status
+                                                                            ]
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            run.status
+                                                                        }
+                                                                    </Badge>
+                                                                    <span className="text-muted-foreground">
+                                                                        {
+                                                                            run.created_at
+                                                                        }{' '}
+                                                                        ·
+                                                                        comment{' '}
+                                                                        {
+                                                                            run.comment_id
+                                                                        }
+                                                                    </span>
+                                                                    {run.error && (
+                                                                        <span className="text-destructive">
+                                                                            {
+                                                                                run.error
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
