@@ -230,7 +230,10 @@ function PickDialog({ pending }: { pending: NonNullable<Props['pending']> }) {
             },
             {
                 preserveScroll: true,
-                onStart: () => setProcessing(true),
+                onStart: () => {
+                    setErrors({});
+                    setProcessing(true);
+                },
                 onFinish: () => setProcessing(false),
                 onError: setErrors,
                 onSuccess: () => setOpen(false),
