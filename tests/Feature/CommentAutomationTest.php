@@ -214,11 +214,11 @@ test('members view automations but only managers change them', function () {
 test('managers create, edit, toggle and delete automations within their team', function () {
     $admin = memberOf($this->team, 'admin');
     $foreign = SocialAccount::factory()->create();
-    $data = ['social_account_ids' => [$this->page->id, $this->ig->id], 'name' => 'Link', 'keywords' => ['link', 'url'], 'dm_message' => 'Here', 'public_reply' => null, 'active' => true];
+    $data = ['type' => 'comment_to_dm', 'social_account_ids' => [$this->page->id, $this->ig->id], 'name' => 'Link', 'keywords' => ['link', 'url'], 'dm_message' => 'Here', 'public_reply' => null, 'active' => true];
 
     $this->actingAs($admin)->post(route('automations.store'), $data)->assertRedirect(route('automations.index'));
     $automation = $this->team->commentAutomations()->sole();
-    expect($automation)->keywords->toBe(['link', 'url'])->post_remote_ids->toBeNull()->active->toBeTrue()
+    expect($automation)->type->toBe('comment_to_dm')->keywords->toBe(['link', 'url'])->post_remote_ids->toBeNull()->active->toBeTrue()
         ->and($automation->accounts()->pluck('social_accounts.id')->sort()->values()->all())->toBe([$this->page->id, $this->ig->id]);
 
     $this->actingAs($admin)->put(route('automations.update', $automation), [...$data, 'social_account_ids' => [$this->ig->id], 'active' => false, 'post_remote_ids' => ['media1']]);
@@ -231,6 +231,7 @@ test('managers create, edit, toggle and delete automations within their team', f
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => [$this->page->id, $foreign->id]])->assertSessionHasErrors('social_account_ids.1');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => []])->assertSessionHasErrors('social_account_ids');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'keywords' => []])->assertSessionHasErrors('keywords');
+    $this->actingAs($admin)->post(route('automations.store'), [...$data, 'type' => 'story_reply'])->assertSessionHasErrors('type');
     // Picking posts but none must not widen to every post.
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'post_remote_ids' => []])->assertSessionHasErrors('post_remote_ids');
     expect($this->team->commentAutomations()->count())->toBe(1);

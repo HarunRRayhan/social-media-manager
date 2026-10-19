@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $team_id
+ * @property string $type
  * @property string $name
  * @property list<string>|null $post_remote_ids
  * @property list<string> $keywords
@@ -23,9 +24,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'post_remote_ids', 'keywords', 'dm_message', 'public_reply', 'active'])]
+#[Fillable(['type', 'name', 'post_remote_ids', 'keywords', 'dm_message', 'public_reply', 'active'])]
 class CommentAutomation extends Model
 {
+    /** The automation types a team can create; the page lists more as coming soon. */
+    public const TYPES = ['comment_to_dm'];
+
     protected function casts(): array
     {
         return [

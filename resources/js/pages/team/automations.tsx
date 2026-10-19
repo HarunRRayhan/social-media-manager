@@ -24,7 +24,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { automationTypeLabel, automationTypes } from '@/lib/automation-types';
+import type { AutomationTypeKey } from '@/lib/automation-types';
 import { platforms } from '@/lib/platforms';
+import type { PlatformKey } from '@/lib/platforms';
 import { index } from '@/routes/automations';
 
 type Account = { id: number; provider: 'facebook' | 'instagram'; name: string };
@@ -48,6 +51,7 @@ type PublishedPost = {
 
 type Automation = {
     id: number;
+    type: AutomationTypeKey;
     social_account_ids: number[];
     name: string;
     post_remote_ids: string[] | null;
@@ -66,7 +70,7 @@ type Props = {
     canManage: boolean;
 };
 
-const platformLabel = (provider: Account['provider']) =>
+const platformLabel = (provider: PlatformKey) =>
     platforms.find((platform) => platform.key === provider)?.label ?? provider;
 
 const statusVariant = {
@@ -202,6 +206,41 @@ function PostChecklist({
     );
 }
 
+function TypePicker({ onPick }: { onPick: (type: AutomationTypeKey) => void }) {
+    return (
+        <div className="grid gap-2">
+            {automationTypes.map((type) => (
+                <button
+                    key={type.key}
+                    type="button"
+                    onClick={() => onPick(type.key)}
+                    className="grid gap-2 rounded-lg border p-4 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    <span className="font-medium">{type.label}</span>
+                    <span className="text-sm text-muted-foreground">
+                        {type.description}
+                    </span>
+                    <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        {type.platforms.map((platform) => (
+                            <PlatformIcon
+                                key={platform}
+                                platform={platform}
+                                className="size-5 rounded"
+                            />
+                        ))}
+                        {type.platforms.map(platformLabel).join(', ')}
+                        {type.soon.length > 0 &&
+                            ` · ${type.soon.map(platformLabel).join(', ')} soon`}
+                    </span>
+                </button>
+            ))}
+            <p className="text-center text-xs text-muted-foreground">
+                More automation types are coming.
+            </p>
+        </div>
+    );
+}
+
 function AutomationDialog({
     trigger,
     title,
@@ -216,14 +255,53 @@ function AutomationDialog({
     automation?: Automation;
 }) {
     const [open, setOpen] = useState(false);
+    // A new automation starts with its type; an existing one keeps its own.
+    const [type, setType] = useState<AutomationTypeKey | null>(
+        form.automation?.type ?? null,
+    );
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                setOpen(next);
+
+                if (!next && !form.automation) {
+                    setType(null);
+                }
+            }}
+        >
             <DialogTrigger asChild>{trigger}</DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-                <DialogTitle>{title}</DialogTitle>
-                <DialogDescription>{description}</DialogDescription>
-                <AutomationForm {...form} onSaved={() => setOpen(false)} />
+                {type === null ? (
+                    <>
+                        <DialogTitle>{title}</DialogTitle>
+                        <DialogDescription>
+                            Choose what this automation does.
+                        </DialogDescription>
+                        <TypePicker onPick={setType} />
+                    </>
+                ) : (
+                    <>
+                        <DialogTitle>
+                            {form.automation
+                                ? title
+                                : `New ${automationTypeLabel(type)} automation`}
+                        </DialogTitle>
+                        <DialogDescription>{description}</DialogDescription>
+                        <AutomationForm
+                            {...form}
+                            type={type}
+                            onSaved={() => {
+                                setOpen(false);
+
+                                if (!form.automation) {
+                                    setType(null);
+                                }
+                            }}
+                        />
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );
@@ -233,11 +311,13 @@ function AutomationForm({
     accounts,
     posts,
     automation,
+    type,
     onSaved,
 }: {
     accounts: Account[];
     posts: PublishedPost[];
     automation?: Automation;
+    type: AutomationTypeKey;
     onSaved: () => void;
 }) {
     const action = automation
@@ -265,6 +345,7 @@ function AutomationForm({
             options={{ preserveScroll: true }}
             transform={(data) => ({
                 ...data,
+                type,
                 keywords: String(data.keywords ?? '')
                     .split(',')
                     .map((keyword) => keyword.trim())
@@ -421,7 +502,7 @@ export default function Automations({
                 <Heading
                     variant="small"
                     title="Automations"
-                    description="Send a private reply to everyone who comments a keyword on a Page or Instagram post"
+                    description="Automations that run on your connected accounts"
                 />
 
                 {canManage && (
@@ -458,6 +539,9 @@ export default function Automations({
                                         Name
                                     </th>
                                     <th className="px-4 py-2 font-medium">
+                                        Type
+                                    </th>
+                                    <th className="px-4 py-2 font-medium">
                                         Accounts
                                     </th>
                                     <th className="px-4 py-2 font-medium">
@@ -491,6 +575,11 @@ export default function Automations({
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground">
                                                 {automation.name}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                                                {automationTypeLabel(
+                                                    automation.type,
+                                                )}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1">
@@ -663,7 +752,7 @@ export default function Automations({
                                         {automation.runs.length > 0 && (
                                             <tr>
                                                 <td
-                                                    colSpan={6}
+                                                    colSpan={7}
                                                     className="px-4 pb-3"
                                                 >
                                                     <div className="space-y-1 text-sm">

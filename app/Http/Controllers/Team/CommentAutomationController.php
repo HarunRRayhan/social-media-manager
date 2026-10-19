@@ -30,7 +30,7 @@ class CommentAutomationController extends Controller
         return Inertia::render('team/automations', [
             'automations' => $team->commentAutomations()->with('accounts:id,provider,name')->latest()->get()
                 ->map(fn (CommentAutomation $automation) => [
-                    ...$automation->only('id', 'name', 'post_remote_ids', 'keywords', 'dm_message', 'public_reply', 'active'),
+                    ...$automation->only('id', 'type', 'name', 'post_remote_ids', 'keywords', 'dm_message', 'public_reply', 'active'),
                     'social_account_ids' => $automation->accounts->pluck('id'),
                     'accounts' => $automation->accounts->map->only('id', 'provider', 'name'),
                     'runs' => $automation->runs()->latest('id')->limit(5)->get()
@@ -108,6 +108,7 @@ class CommentAutomationController extends Controller
         $data = $request->validate([
             'social_account_ids' => ['required', 'array', 'min:1'],
             'social_account_ids.*' => ['required', 'integer', 'distinct', Rule::exists('social_accounts', 'id')->where('team_id', $team->id)],
+            'type' => ['required', Rule::in(CommentAutomation::TYPES)],
             'name' => ['required', 'string', 'max:255'],
             'post_remote_ids' => ['nullable', 'array', 'min:1'],
             'post_remote_ids.*' => ['required', 'string', 'max:255', 'distinct'],

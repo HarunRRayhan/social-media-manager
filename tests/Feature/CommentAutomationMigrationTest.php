@@ -15,7 +15,7 @@ test('the migration moves each automation account and post into the new shape an
     $page = SocialAccount::factory()->for($team)->create();
     $ig = SocialAccount::factory()->for($team)->instagram()->create();
 
-    $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
+    $this->artisan('migrate:rollback', ['--step' => 2])->assertSuccessful();
 
     DB::table('comment_automations')->insert([
         ['id' => 1, 'team_id' => $team->id, 'social_account_id' => $page->id, 'name' => 'One', 'post_remote_id' => 'page1_5', 'keywords' => '["a"]', 'dm_message' => 'x', 'active' => true],
