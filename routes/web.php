@@ -10,6 +10,11 @@ use Laravel\Fortify\Features;
 
 Route::inertia('/', 'welcome')->name('home');
 
+// Public pages Meta's app settings link to.
+foreach (['privacy', 'terms', 'data-deletion'] as $page) {
+    Route::inertia($page, 'legal', ['page' => $page])->name($page);
+}
+
 // Lets a deploy be verified: the served commit must match the merged one.
 Route::get('version', fn () => response()->json(['commit' => config('app.commit')]));
 
