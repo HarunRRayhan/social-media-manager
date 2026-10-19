@@ -1,6 +1,7 @@
 import { Form, Head, router } from '@inertiajs/react';
 import { MoreHorizontal, Pencil, Power, Trash2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
+import { toast } from 'sonner';
 import CommentAutomationController from '@/actions/App/Http/Controllers/Team/CommentAutomationController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -335,7 +336,12 @@ function RowActions({
                                     ...payload(automation),
                                     active: !automation.active,
                                 },
-                                { preserveScroll: true },
+                                {
+                                    preserveScroll: true,
+                                    // No form here to show it, e.g. a keyword clash on activating.
+                                    onError: (errors) =>
+                                        toast.error(Object.values(errors)[0]),
+                                },
                             )
                         }
                     >

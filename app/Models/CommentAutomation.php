@@ -45,6 +45,31 @@ class CommentAutomation extends Model
         return collect($this->keywords)->contains(fn (string $keyword) => mb_stripos($text, $keyword) !== false);
     }
 
+    /**
+     * The keyword of this automation that would answer the same comments as these settings, if any: Meta allows
+     * one private reply per comment, so two automations sharing a post and a keyword would fight over it.
+     * Keywords clash when one contains the other, because matching is by "contains", ignoring case.
+     *
+     * @param  list<string>  $keywords
+     * @param  list<string>|null  $posts
+     */
+    public function clashingKeyword(array $keywords, ?array $posts): ?string
+    {
+        if ($this->post_remote_ids !== null && $posts !== null && array_intersect($this->post_remote_ids, $posts) === []) {
+            return null;
+        }
+
+        foreach ($this->keywords as $mine) {
+            foreach ($keywords as $theirs) {
+                if ($mine !== '' && $theirs !== '' && (mb_stripos($mine, $theirs) !== false || mb_stripos($theirs, $mine) !== false)) {
+                    return $theirs;
+                }
+            }
+        }
+
+        return null;
+    }
+
     /** Whether the automation listens on this post: no list means every post. */
     public function coversPost(string $postId): bool
     {
