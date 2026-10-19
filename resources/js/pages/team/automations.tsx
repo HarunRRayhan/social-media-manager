@@ -9,6 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     Dialog,
     DialogClose,
     DialogContent,
@@ -454,25 +459,38 @@ export default function Automations({
                                             {automation.name}
                                         </p>
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
-                                            {automation.accounts.map(
-                                                (account) => (
-                                                    <span
-                                                        key={account.id}
-                                                        className="flex items-center gap-1.5"
-                                                        title={platformLabel(
-                                                            account.provider,
-                                                        )}
-                                                    >
-                                                        <PlatformIcon
-                                                            platform={
-                                                                account.provider
-                                                            }
-                                                            className="size-5 rounded-md"
-                                                        />
-                                                        {account.name}
-                                                    </span>
-                                                ),
-                                            )}
+                                            <div className="flex items-center gap-1">
+                                                {automation.accounts.map(
+                                                    (account) => (
+                                                        <Tooltip
+                                                            key={account.id}
+                                                        >
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
+                                                                <span
+                                                                    tabIndex={0}
+                                                                    aria-label={`${account.name} (${platformLabel(account.provider)})`}
+                                                                    className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                                >
+                                                                    <PlatformIcon
+                                                                        platform={
+                                                                            account.provider
+                                                                        }
+                                                                        className="size-6 rounded-md"
+                                                                    />
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                {account.name} ·{' '}
+                                                                {platformLabel(
+                                                                    account.provider,
+                                                                )}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ),
+                                                )}
+                                            </div>
                                             <span>
                                                 ·{' '}
                                                 {automation.post_remote_ids
