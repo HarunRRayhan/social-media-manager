@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Webhooks;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunCommentAutomation;
 use App\Models\CommentAutomation;
+use App\Models\SocialAccount;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -36,13 +37,15 @@ class MetaWebhookController extends Controller
         abort_unless($secret !== '' && hash_equals('sha256='.hash_hmac('sha256', $request->getContent(), $secret), $signature), 403);
 
         foreach ($this->comments($request->json()->all()) as $comment) {
-            CommentAutomation::query()
-                ->where('active', true)
-                ->whereHas('socialAccount', fn ($query) => $query->where('provider', $comment['provider'])->where('external_id', $comment['account']))
-                ->where(fn ($query) => $query->whereNull('post_remote_id')->orWhere('post_remote_id', $comment['post']))
+            // Every team that connected this account runs its own automations, as that account.
+            SocialAccount::query()
+                ->where('provider', $comment['provider'])
+                ->where('external_id', $comment['account'])
+                ->with(['commentAutomations' => fn ($query) => $query->where('active', true)])
                 ->get()
-                ->filter(fn (CommentAutomation $automation) => $automation->matches($comment['text']))
-                ->each(fn (CommentAutomation $automation) => RunCommentAutomation::dispatch($automation->id, $comment['id'], $comment['from']));
+                ->each(fn (SocialAccount $account) => $account->commentAutomations
+                    ->filter(fn (CommentAutomation $automation) => $automation->coversPost($comment['post']) && $automation->matches($comment['text']))
+                    ->each(fn (CommentAutomation $automation) => RunCommentAutomation::dispatch($automation->id, $account->id, $comment['id'], $comment['from'])));
         }
 
         return response('', 200);

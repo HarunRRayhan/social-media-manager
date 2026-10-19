@@ -1,8 +1,10 @@
 import { Form, Head, router } from '@inertiajs/react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import CommentAutomationController from '@/actions/App/Http/Controllers/Team/CommentAutomationController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import PlatformIcon from '@/components/platform-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,13 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { platforms } from '@/lib/platforms';
 import { index } from '@/routes/automations';
 
 type Account = { id: number; provider: 'facebook' | 'instagram'; name: string };
@@ -36,26 +32,37 @@ type Run = {
     created_at: string | null;
 };
 
+type PublishedPost = {
+    remote_id: string;
+    social_account_id: number;
+    provider: Account['provider'];
+    account: string;
+    excerpt: string;
+    published_at: string | null;
+};
+
 type Automation = {
     id: number;
-    social_account_id: number;
+    social_account_ids: number[];
     name: string;
-    post_remote_id: string | null;
+    post_remote_ids: string[] | null;
     keywords: string[];
     dm_message: string;
     public_reply: string | null;
     active: boolean;
-    account: Pick<Account, 'provider' | 'name'>;
+    accounts: Account[];
     runs: Run[];
 };
 
 type Props = {
     automations: Automation[];
     accounts: Account[];
+    posts: PublishedPost[];
     canManage: boolean;
 };
 
-const providerLabel = { facebook: 'Facebook Page', instagram: 'Instagram' };
+const platformLabel = (provider: Account['provider']) =>
+    platforms.find((platform) => platform.key === provider)?.label ?? provider;
 
 const statusVariant = {
     sent: 'default',
@@ -69,21 +76,154 @@ const textareaClass =
 
 const payload = (automation: Automation) => ({
     ...automation,
-    account: undefined,
+    accounts: undefined,
     runs: undefined,
 });
 
+const toggle = <T,>(list: T[], item: T, on: boolean) =>
+    on ? [...list, item] : list.filter((other) => other !== item);
+
+function AccountChecklist({
+    accounts,
+    selected,
+    onToggle,
+    idPrefix,
+}: {
+    accounts: Account[];
+    selected: number[];
+    onToggle: (id: number, on: boolean) => void;
+    idPrefix: string;
+}) {
+    const groups = platforms
+        .map((platform) => ({
+            platform,
+            accounts: accounts.filter(
+                (account) => account.provider === platform.key,
+            ),
+        }))
+        .filter((group) => group.accounts.length > 0);
+
+    return (
+        <div className="max-h-60 overflow-y-auto rounded-lg border border-border">
+            {groups.map(({ platform, accounts }) => (
+                <div key={platform.key} className="border-b last:border-b-0">
+                    <p className="flex items-center gap-2 bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
+                        <PlatformIcon
+                            platform={platform.key}
+                            className="size-5 rounded-md"
+                        />
+                        {platform.label}
+                    </p>
+                    {accounts.map((account) => {
+                        const id = `${idPrefix}-account-${account.id}`;
+
+                        return (
+                            <Label
+                                key={account.id}
+                                htmlFor={id}
+                                className="flex cursor-pointer items-center gap-3 border-t px-3 py-2.5 font-normal"
+                            >
+                                <Checkbox
+                                    id={id}
+                                    checked={selected.includes(account.id)}
+                                    onCheckedChange={(on) =>
+                                        onToggle(account.id, on === true)
+                                    }
+                                />
+                                <span className="truncate">{account.name}</span>
+                            </Label>
+                        );
+                    })}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function PostChecklist({
+    posts,
+    selected,
+    onToggle,
+    idPrefix,
+}: {
+    posts: PublishedPost[];
+    selected: string[];
+    onToggle: (id: string, on: boolean) => void;
+    idPrefix: string;
+}) {
+    if (posts.length === 0) {
+        return (
+            <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                No published posts on the picked accounts yet.
+            </p>
+        );
+    }
+
+    return (
+        <div className="max-h-60 overflow-y-auto rounded-lg border border-border">
+            {posts.map((post) => {
+                const id = `${idPrefix}-post-${post.remote_id}`;
+
+                return (
+                    <Label
+                        key={post.remote_id}
+                        htmlFor={id}
+                        className="flex cursor-pointer items-center gap-3 border-b px-3 py-2.5 font-normal last:border-b-0"
+                    >
+                        <Checkbox
+                            id={id}
+                            checked={selected.includes(post.remote_id)}
+                            onCheckedChange={(on) =>
+                                onToggle(post.remote_id, on === true)
+                            }
+                        />
+                        <PlatformIcon
+                            platform={post.provider}
+                            className="size-7 rounded-lg"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm">
+                                {post.excerpt || 'No caption'}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                                {post.account}
+                                {post.published_at && ` · ${post.published_at}`}
+                            </p>
+                        </div>
+                    </Label>
+                );
+            })}
+        </div>
+    );
+}
+
 function AutomationForm({
     accounts,
+    posts,
     automation,
 }: {
     accounts: Account[];
+    posts: PublishedPost[];
     automation?: Automation;
 }) {
     const action = automation
         ? CommentAutomationController.update.form(automation.id)
         : CommentAutomationController.store.form();
     const key = automation?.id ?? 'new';
+    const [accountIds, setAccountIds] = useState(
+        automation?.social_account_ids ?? [],
+    );
+    const [postIds, setPostIds] = useState(automation?.post_remote_ids ?? []);
+    const [scoped, setScoped] = useState(postIds.length > 0);
+    const visiblePosts = posts.filter((post) =>
+        accountIds.includes(post.social_account_id),
+    );
+    // A saved post on an unpicked account drops out; one older than the list stays.
+    const keptPostIds = postIds.filter(
+        (id) =>
+            visiblePosts.some((post) => post.remote_id === id) ||
+            !posts.some((post) => post.remote_id === id),
+    );
 
     return (
         <Form
@@ -95,8 +235,17 @@ function AutomationForm({
                     .split(',')
                     .map((keyword) => keyword.trim())
                     .filter(Boolean),
+                social_account_ids: accountIds,
+                post_remote_ids: scoped ? keptPostIds : null,
                 active: automation?.active ?? true,
             })}
+            onSuccess={() => {
+                if (!automation) {
+                    setAccountIds([]);
+                    setPostIds([]);
+                    setScoped(false);
+                }
+            }}
             resetOnSuccess={!automation}
             className="space-y-4"
         >
@@ -115,40 +264,56 @@ function AutomationForm({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor={`account-${key}`}>Account</Label>
-                        <Select
-                            name="social_account_id"
-                            defaultValue={automation?.social_account_id.toString()}
-                        >
-                            <SelectTrigger id={`account-${key}`}>
-                                <SelectValue placeholder="Pick an account" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {accounts.map((account) => (
-                                    <SelectItem
-                                        key={account.id}
-                                        value={account.id.toString()}
-                                    >
-                                        {account.name} (
-                                        {providerLabel[account.provider]})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <InputError message={errors.social_account_id} />
+                        <Label>Accounts</Label>
+                        <AccountChecklist
+                            accounts={accounts}
+                            selected={accountIds}
+                            onToggle={(id, on) =>
+                                setAccountIds(toggle(accountIds, id, on))
+                            }
+                            idPrefix={String(key)}
+                        />
+                        <InputError
+                            message={
+                                errors.social_account_ids ??
+                                Object.entries(errors).find(([field]) =>
+                                    field.startsWith('social_account_ids.'),
+                                )?.[1]
+                            }
+                        />
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor={`post-${key}`}>
-                            Post ID (optional)
-                        </Label>
-                        <Input
-                            id={`post-${key}`}
-                            name="post_remote_id"
-                            defaultValue={automation?.post_remote_id ?? ''}
-                            placeholder="Empty: every post of the account"
-                        />
-                        <InputError message={errors.post_remote_id} />
+                        <Label>Posts</Label>
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={scoped ? 'outline' : 'default'}
+                                onClick={() => setScoped(false)}
+                            >
+                                All posts
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={scoped ? 'default' : 'outline'}
+                                onClick={() => setScoped(true)}
+                            >
+                                Pick posts
+                            </Button>
+                        </div>
+                        {scoped && (
+                            <PostChecklist
+                                posts={visiblePosts}
+                                selected={postIds}
+                                onToggle={(id, on) =>
+                                    setPostIds(toggle(postIds, id, on))
+                                }
+                                idPrefix={String(key)}
+                            />
+                        )}
+                        <InputError message={errors.post_remote_ids} />
                     </div>
 
                     <div className="grid gap-2">
@@ -207,6 +372,7 @@ function AutomationForm({
 export default function Automations({
     automations,
     accounts,
+    posts,
     canManage,
 }: Props) {
     return (
@@ -230,28 +396,17 @@ export default function Automations({
                                     New automation
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
                                 <DialogTitle>New automation</DialogTitle>
                                 <DialogDescription>
                                     Each comment gets the DM at most once.
                                 </DialogDescription>
-                                <AutomationForm accounts={accounts} />
+                                <AutomationForm
+                                    accounts={accounts}
+                                    posts={posts}
+                                />
                             </DialogContent>
                         </Dialog>
-
-                        <Button
-                            variant="secondary"
-                            disabled={accounts.length === 0}
-                            onClick={() =>
-                                router.post(
-                                    CommentAutomationController.subscribe.url(),
-                                    {},
-                                    { preserveScroll: true },
-                                )
-                            }
-                        >
-                            Enable comment automation
-                        </Button>
                     </div>
                 )}
 
@@ -273,28 +428,45 @@ export default function Automations({
                                         <p className="font-medium tracking-tight">
                                             {automation.name}
                                         </p>
-                                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                                            <Badge variant="secondary">
-                                                {
-                                                    providerLabel[
-                                                        automation.account
-                                                            .provider
-                                                    ]
-                                                }
-                                            </Badge>
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+                                            {automation.accounts.map(
+                                                (account) => (
+                                                    <span
+                                                        key={account.id}
+                                                        className="flex items-center gap-1.5"
+                                                        title={platformLabel(
+                                                            account.provider,
+                                                        )}
+                                                    >
+                                                        <PlatformIcon
+                                                            platform={
+                                                                account.provider
+                                                            }
+                                                            className="size-5 rounded-md"
+                                                        />
+                                                        {account.name}
+                                                    </span>
+                                                ),
+                                            )}
                                             <span>
-                                                {automation.account.name}
-                                            </span>
-                                            <span>
-                                                {automation.post_remote_id
-                                                    ? `post ${automation.post_remote_id}`
-                                                    : 'every post'}
+                                                ·{' '}
+                                                {automation.post_remote_ids
+                                                    ? `${automation.post_remote_ids.length} ${automation.post_remote_ids.length === 1 ? 'post' : 'posts'}`
+                                                    : 'All posts'}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            Keywords:{' '}
-                                            {automation.keywords.join(', ')}
-                                        </p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {automation.keywords.map(
+                                                (keyword) => (
+                                                    <Badge
+                                                        key={keyword}
+                                                        variant="outline"
+                                                    >
+                                                        {keyword}
+                                                    </Badge>
+                                                ),
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center gap-1">
@@ -342,7 +514,7 @@ export default function Automations({
                                                             </span>
                                                         </Button>
                                                     </DialogTrigger>
-                                                    <DialogContent>
+                                                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
                                                         <DialogTitle>
                                                             Edit automation
                                                         </DialogTitle>
@@ -353,6 +525,7 @@ export default function Automations({
                                                         </DialogDescription>
                                                         <AutomationForm
                                                             accounts={accounts}
+                                                            posts={posts}
                                                             automation={
                                                                 automation
                                                             }
