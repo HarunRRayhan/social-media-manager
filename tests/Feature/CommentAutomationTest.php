@@ -325,3 +325,14 @@ it('refuses an active automation that would answer the same comments as another'
     // A different account does not clash.
     $this->actingAs($this->owner)->post('/team/automations', [...$data, 'name' => 'IG', 'social_account_ids' => [$this->ig->id]])->assertSessionHasNoErrors();
 });
+
+it('lets an already overlapping automation be edited without touching its scope', function () {
+    $a = automationFor($this->page, ['name' => 'A', 'keywords' => ['info']]);
+    automationFor($this->page, ['name' => 'B', 'keywords' => ['info']]);
+
+    $this->actingAs($this->owner)->put("/team/automations/{$a->id}", [
+        'social_account_ids' => [$this->page->id], 'type' => 'comment_to_dm', 'name' => 'A', 'keywords' => ['info'], 'dm_message' => 'New text', 'active' => true,
+    ])->assertSessionHasNoErrors();
+
+    expect($a->fresh()->dm_message)->toBe('New text');
+});

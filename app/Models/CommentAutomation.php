@@ -61,7 +61,7 @@ class CommentAutomation extends Model
 
         foreach ($this->keywords as $mine) {
             foreach ($keywords as $theirs) {
-                if (mb_stripos($mine, $theirs) !== false || mb_stripos($theirs, $mine) !== false) {
+                if ($mine !== '' && $theirs !== '' && (mb_stripos($mine, $theirs) !== false || mb_stripos($theirs, $mine) !== false)) {
                     return $theirs;
                 }
             }

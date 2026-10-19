@@ -83,7 +83,19 @@ class CommentAutomationController extends Controller
 
         $automation = $team->commentAutomations()->findOrFail($automation);
         $data = $this->validated($request, $team);
-        $this->ensureNoClash($team, $data, $automation->id);
+        // Only a change that could start a clash is checked, so older overlapping data never blocks other edits.
+        $accountIds = array_map(intval(...), $data['social_account_ids']);
+        $currentIds = $automation->accounts()->pluck('social_accounts.id')->map(fn ($id) => (int) $id)->all();
+        sort($accountIds);
+        sort($currentIds);
+        $sameScope = $automation->active
+            && $accountIds === $currentIds
+            && $data['keywords'] === $automation->keywords
+            && $data['post_remote_ids'] === $automation->post_remote_ids;
+
+        if (! $sameScope) {
+            $this->ensureNoClash($team, $data, $automation->id);
+        }
 
         DB::transaction(function () use ($automation, $data) {
             $automation->update(Arr::except($data, 'social_account_ids'));
