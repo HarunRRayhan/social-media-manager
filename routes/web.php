@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\MagicLinkController;
+use App\Http\Controllers\Auth\ReviewLoginController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -38,6 +39,10 @@ Route::post('login/link', [MagicLinkController::class, 'login'])
 Route::post('user/confirm-password/link', [MagicLinkController::class, 'confirm'])
     ->middleware(['auth', 'throttle:magic-link'])
     ->name('password.confirm.link');
+
+Route::get('review-login/{token}', ReviewLoginController::class)
+    ->middleware('throttle:magic-link')
+    ->name('review-login');
 
 Route::get('magic-link/{token}', [MagicLinkController::class, 'consume'])
     ->middleware('throttle:magic-link')

@@ -7,30 +7,30 @@ Until then Meta sends no real comment webhooks, so comment-to-DM cannot run.
 
 1. Business verification for the "Harun's SMM" business portfolio (Business Settings → Security Center).
 2. App settings → Basic:
-   - Privacy policy URL: https://sm.harun.dev/privacy
-   - Terms of service URL: https://sm.harun.dev/terms
-   - User data deletion: instructions URL https://sm.harun.dev/data-deletion
-   - App icon (1024×1024), category Business, contact email sm@harun.dev
+    - Privacy policy URL: https://sm.harun.dev/privacy
+    - Terms of service URL: https://sm.harun.dev/terms
+    - User data deletion: instructions URL https://sm.harun.dev/data-deletion
+    - App icon (1024×1024), category Business, contact email sm@harun.dev
 3. A reviewer login for SMM (see "Reviewer access").
 
 ## Permissions
 
 Paste one block per permission under Use cases → Permissions and features → Request advanced access.
 
-| Permission | How SMM uses it |
-|---|---|
-| `pages_show_list` | Lists the Pages the person manages so they can pick which ones to connect to SMM. |
-| `business_management` | Lists Pages and Instagram accounts that the person manages through a business portfolio, so those can be picked too. |
-| `pages_read_engagement` | Reads the Page's name, picture and access token when the person connects it, so SMM can act for that Page. |
-| `pages_manage_posts` | Publishes the posts the person writes and schedules in SMM to their Page, at the time they choose. |
-| `pages_manage_metadata` | Subscribes the connected Page to the app's webhooks, so SMM is told when someone comments on a Page post. |
-| `pages_read_user_content` | Reads the comment a person left on the Page's post (from the webhook) to check it for the automation's keyword. |
-| `pages_messaging` | Sends one private reply (a Messenger message) to the person who commented the keyword, with the message the Page owner wrote. |
-| `pages_manage_engagement` | Posts the optional public reply under that comment, for example "Sent you a DM". |
-| `instagram_basic` | Reads the connected Instagram professional account's username and picture, and the link to each post SMM publishes. |
-| `instagram_content_publish` | Publishes the posts the person schedules in SMM to their Instagram professional account. |
-| `instagram_manage_comments` | Receives comment webhooks for the account's posts and posts the optional public reply. |
-| `instagram_manage_messages` | Sends one private reply (Instagram DM) to the person who commented the keyword. |
+| Permission                  | How SMM uses it                                                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `pages_show_list`           | Lists the Pages the person manages so they can pick which ones to connect to SMM.                                             |
+| `business_management`       | Lists Pages and Instagram accounts that the person manages through a business portfolio, so those can be picked too.          |
+| `pages_read_engagement`     | Reads the Page's name, picture and access token when the person connects it, so SMM can act for that Page.                    |
+| `pages_manage_posts`        | Publishes the posts the person writes and schedules in SMM to their Page, at the time they choose.                            |
+| `pages_manage_metadata`     | Subscribes the connected Page to the app's webhooks, so SMM is told when someone comments on a Page post.                     |
+| `pages_read_user_content`   | Reads the comment a person left on the Page's post (from the webhook) to check it for the automation's keyword.               |
+| `pages_messaging`           | Sends one private reply (a Messenger message) to the person who commented the keyword, with the message the Page owner wrote. |
+| `pages_manage_engagement`   | Posts the optional public reply under that comment, for example "Sent you a DM".                                              |
+| `instagram_basic`           | Reads the connected Instagram professional account's username and picture, and the link to each post SMM publishes.           |
+| `instagram_content_publish` | Publishes the posts the person schedules in SMM to their Instagram professional account.                                      |
+| `instagram_manage_comments` | Receives comment webhooks for the account's posts and posts the optional public reply.                                        |
+| `instagram_manage_messages` | Sends one private reply (Instagram DM) to the person who commented the keyword.                                               |
 
 Each block can end with: "The account owner sets this up and can turn it off at any time. SMM replies at
 most once per comment and stores only the comment ID and commenter ID, not the comment text."
@@ -48,8 +48,9 @@ most once per comment and stores only the comment ID and commenter ID, not the c
 
 ## Reviewer access
 
-SMM signs in with an emailed link or a passkey, which a reviewer cannot use.
-Open question: add a review-only login, then put its steps under "App verification → Test instructions".
+SMM signs in with an emailed link or a passkey, which a reviewer cannot use. While `REVIEW_LOGIN_TOKEN` is set
+on the web service, `https://sm.harun.dev/review-login/{token}` signs into a demo account
+(review@sm.harun.dev). Put that link in App verification → Test instructions, and unset the variable after review.
 
 ## Notes
 
