@@ -109,17 +109,17 @@ class CommentAutomationController extends Controller
             'social_account_ids' => ['required', 'array', 'min:1'],
             'social_account_ids.*' => ['required', 'integer', 'distinct', Rule::exists('social_accounts', 'id')->where('team_id', $team->id)],
             'name' => ['required', 'string', 'max:255'],
-            'post_remote_ids' => ['nullable', 'array'],
+            'post_remote_ids' => ['nullable', 'array', 'min:1'],
             'post_remote_ids.*' => ['required', 'string', 'max:255', 'distinct'],
             'keywords' => ['required', 'array', 'min:1'],
             'keywords.*' => ['required', 'string', 'max:100'],
             'dm_message' => ['required', 'string', 'max:1000'],
             'public_reply' => ['nullable', 'string', 'max:1000'],
             'active' => ['boolean'],
-        ]);
+        ], ['post_remote_ids.min' => __('Pick at least one post, or choose All posts.')]);
 
-        // No posts picked means every post.
-        return [...$data, 'post_remote_ids' => ($data['post_remote_ids'] ?? null) ?: null];
+        // Null means every post; picking posts but none is refused above.
+        return [...$data, 'post_remote_ids' => $data['post_remote_ids'] ?? null];
     }
 
     private function back(string $message): RedirectResponse

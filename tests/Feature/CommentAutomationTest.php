@@ -225,12 +225,14 @@ test('managers create, edit, toggle and delete automations within their team', f
     expect($automation->fresh())->active->toBeFalse()->post_remote_ids->toBe(['media1'])
         ->and($automation->accounts()->pluck('social_accounts.id')->all())->toBe([$this->ig->id]);
 
-    $this->actingAs($admin)->put(route('automations.update', $automation), [...$data, 'post_remote_ids' => []]);
+    $this->actingAs($admin)->put(route('automations.update', $automation), [...$data, 'post_remote_ids' => null]);
     expect($automation->fresh()->post_remote_ids)->toBeNull();
 
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => [$this->page->id, $foreign->id]])->assertSessionHasErrors('social_account_ids.1');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => []])->assertSessionHasErrors('social_account_ids');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'keywords' => []])->assertSessionHasErrors('keywords');
+    // Picking posts but none must not widen to every post.
+    $this->actingAs($admin)->post(route('automations.store'), [...$data, 'post_remote_ids' => []])->assertSessionHasErrors('post_remote_ids');
     expect($this->team->commentAutomations()->count())->toBe(1);
     $this->actingAs(User::factory()->create())->delete(route('automations.destroy', $automation))->assertNotFound();
 
@@ -280,6 +282,21 @@ test('the page lists the accounts, the attached accounts, and the newest publish
             ->where('posts.0.remote_id', 'media1')
             ->where('posts.0.provider', 'instagram')
             ->where('posts.0.excerpt', 'Free guide inside'));
+});
+
+test('a job queued before automations had many accounts still sends as its one account', function () {
+    Http::fake([graphUrl('page1/messages') => ['recipient_id' => 'psid', 'message_id' => 'm1']]);
+    $automation = automationFor($this->page);
+
+    // An old payload unserializes without the accountId property.
+    $job = (new ReflectionClass(RunCommentAutomation::class))->newInstanceWithoutConstructor();
+    $job->automationId = $automation->id;
+    $job->commentId = 'c1';
+    $job->commenterId = 'user9';
+    $job->handle();
+
+    Http::assertSent(fn ($r) => $r->url() === graphUrl('page1/messages'));
+    expect($automation->runs()->sole()->status)->toBe('sent');
 });
 
 test('the old enable button route is gone', function () {

@@ -45,7 +45,8 @@ class RunCommentAutomation implements ShouldQueue
 
         $run = $automation->runs()->where('comment_id', $this->commentId)->sole();
         // The account that received the comment, while it is still attached.
-        $account = $automation->accounts()->find($this->accountId);
+        // Jobs queued before automations had many accounts carry no account id; those had exactly one.
+        $account = isset($this->accountId) ? $automation->accounts()->find($this->accountId) : $automation->accounts()->first();
 
         // Turned off, or the account removed, between the webhook and this job.
         if (! $automation->active || ! $account) {

@@ -13,6 +13,12 @@ return new class extends Migration
      */
     public $withinTransaction = false;
 
+    public function __construct()
+    {
+        // Postgres changes its schema transactionally, so a half-done move rolls back there.
+        $this->withinTransaction = DB::getDriverName() !== 'sqlite';
+    }
+
     /**
      * One automation, many accounts and many posts: the single account moves into a pivot, the single post into a list.
      */
