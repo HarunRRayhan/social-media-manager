@@ -54,5 +54,5 @@ Open question: add a review-only login, then put its steps under "App verificati
 ## Notes
 
 - Instagram comment webhooks need the app Live and `instagram_manage_comments` approved.
-- Development mode only delivers events from people with a role on the app; the dashboard "Test" button
-  works regardless (checked 2026-10-19: the sample `feed` event reached /webhooks/meta and got 200).
+- 2026-10-19, app unpublished: the dashboard "Test" `feed` event reached /webhooks/meta and got 200, but two
+  real comments on the Page, made by the app's admin, were never delivered.
