@@ -68,7 +68,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('team/automations', [CommentAutomationController::class, 'index'])->name('automations.index');
     Route::post('team/automations', [CommentAutomationController::class, 'store'])->name('automations.store');
-    Route::post('team/automations/subscribe', [CommentAutomationController::class, 'subscribe'])->name('automations.subscribe');
     Route::put('team/automations/{automation}', [CommentAutomationController::class, 'update'])
         ->whereNumber('automation')
         ->name('automations.update');

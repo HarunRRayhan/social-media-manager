@@ -2,7 +2,9 @@
 
 use App\Jobs\RunCommentAutomation;
 use App\Models\CommentAutomation;
+use App\Models\Post;
 use App\Models\SocialAccount;
+use App\Models\SocialSet;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,15 +29,19 @@ function graphUrl(string $path): string
     return "https://graph.facebook.com/v26.0/{$path}";
 }
 
-function automationFor(SocialAccount $account, array $attributes = []): CommentAutomation
+/** @param  SocialAccount|list<SocialAccount>  $accounts */
+function automationFor(SocialAccount|array $accounts, array $attributes = []): CommentAutomation
 {
-    return $account->team->commentAutomations()->create([
-        'social_account_id' => $account->id,
+    $accounts = collect(is_array($accounts) ? $accounts : [$accounts]);
+    $automation = $accounts->first()->team->commentAutomations()->create([
         'name' => 'Guide',
         'keywords' => ['Guide'],
         'dm_message' => 'Here is the guide',
         ...$attributes,
     ]);
+    $automation->accounts()->attach($accounts->pluck('id'));
+
+    return $automation;
 }
 
 /** POST a webhook delivery signed with the app secret, unless another signature is given. */
@@ -57,9 +63,9 @@ function pageComment(string $text, string $from = 'user9', string $commentId = '
     ]]]]];
 }
 
-function igComment(string $text, string $from = 'iguser9', string $commentId = 'igc1', string $mediaId = 'media1'): array
+function igComment(string $text, string $from = 'iguser9', string $commentId = 'igc1', string $mediaId = 'media1', string $account = 'ig1'): array
 {
-    return ['object' => 'instagram', 'entry' => [['id' => 'ig1', 'time' => 1, 'changes' => [[
+    return ['object' => 'instagram', 'entry' => [['id' => $account, 'time' => 1, 'changes' => [[
         'field' => 'comments',
         'value' => ['id' => $commentId, 'text' => $text, 'from' => ['id' => $from, 'username' => 'someone'], 'media' => ['id' => $mediaId]],
     ]]]]];
@@ -89,7 +95,7 @@ test('a signed facebook comment with a keyword queues the automation', function 
 
     deliver(pageComment('Can I get the GUIDE?'))->assertOk();
 
-    Queue::assertPushed(RunCommentAutomation::class, fn ($job) => $job->automationId === $automation->id && $job->commentId === 'c1' && $job->commenterId === 'user9');
+    Queue::assertPushed(RunCommentAutomation::class, fn ($job) => $job->automationId === $automation->id && $job->accountId === $this->page->id && $job->commentId === 'c1' && $job->commenterId === 'user9');
 });
 
 test('a facebook comment gets a private reply from the page and the public reply', function () {
@@ -142,13 +148,15 @@ test('a comment without a keyword, the account own comment, and an inactive auto
 
 test('an automation limited to one post ignores comments on other posts', function () {
     Http::fake([graphUrl('page1/messages') => ['message_id' => 'm1']]);
-    $automation = automationFor($this->page, ['post_remote_id' => 'page1_5']);
+    $automation = automationFor([$this->page, $this->ig], ['post_remote_ids' => ['page1_5', 'media2']]);
 
     deliver(pageComment('guide', commentId: 'c1', postId: 'page1_6'));
     deliver(pageComment('guide', commentId: 'c2', postId: 'page1_5'));
+    deliver(igComment('guide', commentId: 'igc1', mediaId: 'media1'));
+    deliver(igComment('guide', commentId: 'igc2', mediaId: 'media2'));
 
-    Http::assertSentCount(1);
-    expect($automation->runs()->pluck('comment_id')->all())->toBe(['c2']);
+    Http::assertSentCount(2);
+    expect($automation->runs()->orderBy('id')->pluck('comment_id')->all())->toBe(['c2', 'igc2']);
 });
 
 test('a redelivered webhook never sends a second dm', function () {
@@ -157,18 +165,18 @@ test('a redelivered webhook never sends a second dm', function () {
 
     deliver(pageComment('guide'));
     deliver(pageComment('guide'));
-    RunCommentAutomation::dispatchSync($automation->id, 'c1', 'user9');
+    RunCommentAutomation::dispatchSync($automation->id, $this->page->id, 'c1', 'user9');
 
     Http::assertSentCount(1);
     expect($automation->runs()->count())->toBe(1)
-        ->and((new RunCommentAutomation($automation->id, 'c1', 'user9'))->tries)->toBe(1);
+        ->and((new RunCommentAutomation($automation->id, $this->page->id, 'c1', 'user9'))->tries)->toBe(1);
 });
 
 test('an automation turned off after the webhook is skipped', function () {
     $automation = automationFor($this->page);
     $automation->update(['active' => false]);
 
-    RunCommentAutomation::dispatchSync($automation->id, 'c1', 'user9');
+    RunCommentAutomation::dispatchSync($automation->id, $this->page->id, 'c1', 'user9');
 
     Http::assertNothingSent();
     expect($automation->runs()->sole()->status)->toBe('skipped');
@@ -201,36 +209,81 @@ test('members view automations but only managers change them', function () {
     $this->actingAs($member)->post(route('automations.store'), [])->assertForbidden();
     $this->actingAs($member)->put(route('automations.update', $automation), [])->assertForbidden();
     $this->actingAs($member)->delete(route('automations.destroy', $automation))->assertForbidden();
-    $this->actingAs($member)->post(route('automations.subscribe'))->assertForbidden();
 });
 
 test('managers create, edit, toggle and delete automations within their team', function () {
     $admin = memberOf($this->team, 'admin');
     $foreign = SocialAccount::factory()->create();
-    $data = ['social_account_id' => $this->ig->id, 'name' => 'Link', 'keywords' => ['link', 'url'], 'dm_message' => 'Here', 'public_reply' => null, 'active' => true];
+    $data = ['social_account_ids' => [$this->page->id, $this->ig->id], 'name' => 'Link', 'keywords' => ['link', 'url'], 'dm_message' => 'Here', 'public_reply' => null, 'active' => true];
 
     $this->actingAs($admin)->post(route('automations.store'), $data)->assertRedirect(route('automations.index'));
     $automation = $this->team->commentAutomations()->sole();
-    expect($automation)->keywords->toBe(['link', 'url'])->post_remote_id->toBeNull()->active->toBeTrue();
+    expect($automation)->keywords->toBe(['link', 'url'])->post_remote_ids->toBeNull()->active->toBeTrue()
+        ->and($automation->accounts()->pluck('social_accounts.id')->sort()->values()->all())->toBe([$this->page->id, $this->ig->id]);
 
-    $this->actingAs($admin)->put(route('automations.update', $automation), [...$data, 'active' => false, 'post_remote_id' => 'media1']);
-    expect($automation->fresh())->active->toBeFalse()->post_remote_id->toBe('media1');
+    $this->actingAs($admin)->put(route('automations.update', $automation), [...$data, 'social_account_ids' => [$this->ig->id], 'active' => false, 'post_remote_ids' => ['media1']]);
+    expect($automation->fresh())->active->toBeFalse()->post_remote_ids->toBe(['media1'])
+        ->and($automation->accounts()->pluck('social_accounts.id')->all())->toBe([$this->ig->id]);
 
-    $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_id' => $foreign->id])->assertSessionHasErrors('social_account_id');
+    $this->actingAs($admin)->put(route('automations.update', $automation), [...$data, 'post_remote_ids' => []]);
+    expect($automation->fresh()->post_remote_ids)->toBeNull();
+
+    $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => [$this->page->id, $foreign->id]])->assertSessionHasErrors('social_account_ids.1');
+    $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => []])->assertSessionHasErrors('social_account_ids');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'keywords' => []])->assertSessionHasErrors('keywords');
+    expect($this->team->commentAutomations()->count())->toBe(1);
     $this->actingAs(User::factory()->create())->delete(route('automations.destroy', $automation))->assertNotFound();
 
     $this->actingAs($admin)->delete(route('automations.destroy', $automation))->assertRedirect(route('automations.index'));
     $this->assertModelMissing($automation);
+    $this->assertDatabaseCount('comment_automation_social_account', 0);
 });
 
-test('enabling comment automation subscribes every connected page to the webhooks', function () {
-    Http::fake([graphUrl('page1/subscribed_apps') => ['success' => true]]);
+test('one automation on two accounts runs for comments on either, as the account that received it', function () {
+    Http::fake([graphUrl('page1/messages') => ['message_id' => 'm1'], graphUrl('page2/messages') => ['message_id' => 'm2']]);
+    $other = SocialAccount::factory()->for($this->team)->create(['external_id' => 'page2', 'access_token' => 'pt2']);
+    $automation = automationFor([$this->page, $other]);
 
-    $this->actingAs($this->owner)->post(route('automations.subscribe'))->assertRedirect(route('automations.index'));
+    deliver(pageComment('guide', commentId: 'c1', page: 'page1'));
+    deliver(pageComment('guide', commentId: 'c2', postId: 'page2_1', page: 'page2'));
 
-    Http::assertSent(fn ($r) => $r->url() === graphUrl('page1/subscribed_apps') && $r['subscribed_fields'] === 'feed,messages' && $r->hasHeader('Authorization', 'Bearer pt'));
-    Http::assertSentCount(1);
+    Http::assertSent(fn ($r) => $r->url() === graphUrl('page1/messages') && $r['recipient'] === ['comment_id' => 'c1'] && $r->hasHeader('Authorization', 'Bearer pt'));
+    Http::assertSent(fn ($r) => $r->url() === graphUrl('page2/messages') && $r['recipient'] === ['comment_id' => 'c2'] && $r->hasHeader('Authorization', 'Bearer pt2'));
+    Http::assertSentCount(2);
+    expect($automation->runs()->pluck('status')->all())->toBe(['sent', 'sent']);
+});
+
+test('an account removed from the automation after the webhook is skipped', function () {
+    $automation = automationFor([$this->page, $this->ig]);
+    $automation->accounts()->detach($this->page);
+
+    RunCommentAutomation::dispatchSync($automation->id, $this->page->id, 'c1', 'user9');
+
+    Http::assertNothingSent();
+    expect($automation->runs()->sole())->status->toBe('skipped')->error->toBe('The account was removed from the automation.');
+});
+
+test('the page lists the accounts, the attached accounts, and the newest published posts of the team', function () {
+    $automation = automationFor([$this->page, $this->ig], ['post_remote_ids' => ['media1']]);
+    $post = Post::factory()->for($this->team)->create(['social_set_id' => SocialSet::factory()->for($this->team), 'body' => 'Free guide inside', 'status' => 'published']);
+    $post->targets()->create(['social_account_id' => $this->ig->id, 'status' => 'published', 'remote_id' => 'media1', 'published_at' => now()->subDay()]);
+    $post->targets()->create(['social_account_id' => $this->page->id, 'status' => 'failed']);
+    $foreign = Post::factory()->create(['status' => 'published']);
+    $foreign->targets()->create(['social_account_id' => SocialAccount::factory()->create()->id, 'status' => 'published', 'remote_id' => 'theirs', 'published_at' => now()]);
+
+    $this->actingAs($this->owner)->get(route('automations.index'))
+        ->assertInertia(fn ($page) => $page->component('team/automations')
+            ->where('automations.0.social_account_ids', [$this->page->id, $this->ig->id])
+            ->where('automations.0.post_remote_ids', ['media1'])
+            ->has('automations.0.accounts', 2)
+            ->has('posts', 1)
+            ->where('posts.0.remote_id', 'media1')
+            ->where('posts.0.provider', 'instagram')
+            ->where('posts.0.excerpt', 'Free guide inside'));
+});
+
+test('the old enable button route is gone', function () {
+    $this->actingAs($this->owner)->post('/team/automations/subscribe')->assertNotFound();
 });
 
 test('the webhook skips csrf, which the web group enforces in production', function () {

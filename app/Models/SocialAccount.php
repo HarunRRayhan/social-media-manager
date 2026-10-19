@@ -54,4 +54,10 @@ class SocialAccount extends Model
     {
         return $this->belongsToMany(SocialSet::class);
     }
+
+    /** @return BelongsToMany<CommentAutomation, $this> */
+    public function commentAutomations(): BelongsToMany
+    {
+        return $this->belongsToMany(CommentAutomation::class);
+    }
 }

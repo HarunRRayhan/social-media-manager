@@ -228,7 +228,7 @@ class MetaConnectionController extends Controller
     /**
      * Subscribe a Page to the app's webhooks, so its comments (and its Instagram account's) reach /webhooks/meta.
      */
-    public static function subscribe(string $pageId, string $pageToken): void
+    private static function subscribe(string $pageId, string $pageToken): void
     {
         MetaGraph::post("{$pageId}/subscribed_apps", $pageToken, ['subscribed_fields' => 'feed,messages']);
     }

@@ -11,7 +11,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Sends one automation's private reply (and optional public reply) to one comment.
+ * Sends one automation's private reply (and optional public reply) to one comment, from the account that received it.
  * Never retried, and claimed by a unique run row first, so a comment is never DMed twice.
  */
 class RunCommentAutomation implements ShouldQueue
@@ -20,11 +20,11 @@ class RunCommentAutomation implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public int $automationId, public string $commentId, public string $commenterId) {}
+    public function __construct(public int $automationId, public int $accountId, public string $commentId, public string $commenterId) {}
 
     public function handle(): void
     {
-        $automation = CommentAutomation::with('socialAccount')->find($this->automationId);
+        $automation = CommentAutomation::find($this->automationId);
 
         if (! $automation) {
             return;
@@ -44,11 +44,12 @@ class RunCommentAutomation implements ShouldQueue
         }
 
         $run = $automation->runs()->where('comment_id', $this->commentId)->sole();
-        $account = $automation->socialAccount;
+        // The account that received the comment, while it is still attached.
+        $account = $automation->accounts()->find($this->accountId);
 
-        // Turned off between the webhook and this job.
-        if (! $automation->active) {
-            $run->update(['status' => 'skipped', 'error' => 'The automation was turned off.']);
+        // Turned off, or the account removed, between the webhook and this job.
+        if (! $automation->active || ! $account) {
+            $run->update(['status' => 'skipped', 'error' => $automation->active ? 'The account was removed from the automation.' : 'The automation was turned off.']);
 
             return;
         }
