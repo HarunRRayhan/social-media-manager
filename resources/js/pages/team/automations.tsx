@@ -197,14 +197,43 @@ function PostChecklist({
     );
 }
 
+function AutomationDialog({
+    trigger,
+    title,
+    description,
+    ...form
+}: {
+    trigger: React.ReactNode;
+    title: string;
+    description: string;
+    accounts: Account[];
+    posts: PublishedPost[];
+    automation?: Automation;
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>{trigger}</DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+                <DialogTitle>{title}</DialogTitle>
+                <DialogDescription>{description}</DialogDescription>
+                <AutomationForm {...form} onSaved={() => setOpen(false)} />
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function AutomationForm({
     accounts,
     posts,
     automation,
+    onSaved,
 }: {
     accounts: Account[];
     posts: PublishedPost[];
     automation?: Automation;
+    onSaved: () => void;
 }) {
     const action = automation
         ? CommentAutomationController.update.form(automation.id)
@@ -240,6 +269,8 @@ function AutomationForm({
                 active: automation?.active ?? true,
             })}
             onSuccess={() => {
+                onSaved();
+
                 if (!automation) {
                     setAccountIds([]);
                     setPostIds([]);
@@ -390,23 +421,17 @@ export default function Automations({
 
                 {canManage && (
                     <div className="flex flex-wrap gap-2">
-                        <Dialog>
-                            <DialogTrigger asChild>
+                        <AutomationDialog
+                            trigger={
                                 <Button disabled={accounts.length === 0}>
                                     New automation
                                 </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-                                <DialogTitle>New automation</DialogTitle>
-                                <DialogDescription>
-                                    Each comment gets the DM at most once.
-                                </DialogDescription>
-                                <AutomationForm
-                                    accounts={accounts}
-                                    posts={posts}
-                                />
-                            </DialogContent>
-                        </Dialog>
+                            }
+                            title="New automation"
+                            description="Each comment gets the DM at most once."
+                            accounts={accounts}
+                            posts={posts}
+                        />
                     </div>
                 )}
 
@@ -502,8 +527,8 @@ export default function Automations({
 
                                         {canManage && (
                                             <>
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
+                                                <AutomationDialog
+                                                    trigger={
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -513,25 +538,13 @@ export default function Automations({
                                                                 Edit
                                                             </span>
                                                         </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-                                                        <DialogTitle>
-                                                            Edit automation
-                                                        </DialogTitle>
-                                                        <DialogDescription>
-                                                            Comments already
-                                                            answered are not
-                                                            answered again.
-                                                        </DialogDescription>
-                                                        <AutomationForm
-                                                            accounts={accounts}
-                                                            posts={posts}
-                                                            automation={
-                                                                automation
-                                                            }
-                                                        />
-                                                    </DialogContent>
-                                                </Dialog>
+                                                    }
+                                                    title="Edit automation"
+                                                    description="Comments already answered are not answered again."
+                                                    accounts={accounts}
+                                                    posts={posts}
+                                                    automation={automation}
+                                                />
 
                                                 <Dialog>
                                                     <DialogTrigger asChild>
