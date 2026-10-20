@@ -23,7 +23,7 @@ class ThreadsGraph
      */
     public static function get(string $path, string $token, array $query = []): array
     {
-        return self::send(fn () => Http::timeout(120)->withToken($token)->get(self::HOST.self::VERSION.'/'.$path, $query));
+        return self::send(fn () => Http::timeout(30)->withToken($token)->get(self::HOST.self::VERSION.'/'.$path, $query));
     }
 
     /**

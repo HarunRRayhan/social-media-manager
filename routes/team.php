@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Team\ApiTokenController;
+use App\Http\Controllers\Team\BlueskyConnectionController;
 use App\Http\Controllers\Team\CommentAutomationController;
 use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
@@ -69,6 +70,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('team/connections/threads/redirect', [ThreadsConnectionController::class, 'redirect'])->name('connect.threads.redirect');
     // Registered in the Threads app as {APP_URL}/connect/threads/callback, so this path must not change.
     Route::get('connect/threads/callback', [ThreadsConnectionController::class, 'callback'])->name('connect.threads.callback');
+    Route::post('team/connections/bluesky', [BlueskyConnectionController::class, 'store'])
+        ->middleware('throttle:login')
+        ->name('connect.bluesky.store');
 
     Route::get('team/automations', [CommentAutomationController::class, 'index'])->name('automations.index');
     Route::post('team/automations', [CommentAutomationController::class, 'store'])->name('automations.store');

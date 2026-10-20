@@ -1,6 +1,7 @@
-import { Head, router } from '@inertiajs/react';
+import { Form, Head, router } from '@inertiajs/react';
 import { Plug, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/BlueskyConnectionController';
 import ConnectionController from '@/actions/App/Http/Controllers/Team/ConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
 import Heading from '@/components/heading';
@@ -20,6 +21,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { metaPlatforms, platforms } from '@/lib/platforms';
 import type { PlatformKey } from '@/lib/platforms';
@@ -51,6 +53,77 @@ type Props = {
     pending: { pages: Candidate[]; instagram: Candidate[] } | null;
 };
 
+function BlueskyForm({
+    onBack,
+    onSuccess,
+}: {
+    onBack: () => void;
+    onSuccess: () => void;
+}) {
+    return (
+        <Form
+            {...BlueskyConnectionController.store.form()}
+            options={{ preserveScroll: true }}
+            resetOnError={['password']}
+            onSuccess={onSuccess}
+            className="space-y-6"
+        >
+            {({ errors, processing }) => (
+                <>
+                    <div className="grid gap-2">
+                        <Label htmlFor="bluesky-handle">Handle</Label>
+                        <Input
+                            id="bluesky-handle"
+                            name="handle"
+                            required
+                            autoFocus
+                            autoComplete="username"
+                            placeholder="you.bsky.social"
+                        />
+                        <InputError message={errors.handle} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="bluesky-password">App password</Label>
+                        <Input
+                            id="bluesky-password"
+                            name="password"
+                            type="password"
+                            required
+                            autoComplete="off"
+                            placeholder="xxxx-xxxx-xxxx-xxxx"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                            Create one at{' '}
+                            <a
+                                href="https://bsky.app/settings/app-passwords"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline underline-offset-4"
+                            >
+                                bsky.app/settings/app-passwords
+                            </a>
+                            . Never use your main password.
+                        </p>
+                        <InputError message={errors.password} />
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={onBack}
+                        >
+                            Back
+                        </Button>
+                        <Button disabled={processing}>Connect Bluesky</Button>
+                    </DialogFooter>
+                </>
+            )}
+        </Form>
+    );
+}
+
 function ConnectDialog({
     metaConfigured,
     threadsConfigured,
@@ -58,8 +131,17 @@ function ConnectDialog({
     metaConfigured: boolean;
     threadsConfigured: boolean;
 }) {
+    const [open, setOpen] = useState(false);
+    const [bluesky, setBluesky] = useState(false);
+
     return (
-        <Dialog>
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                setOpen(next);
+                setBluesky(false);
+            }}
+        >
             <DialogTrigger asChild>
                 <Button>
                     <Plus />
@@ -68,64 +150,93 @@ function ConnectDialog({
             </DialogTrigger>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>Connect an account</DialogTitle>
+                    <DialogTitle>
+                        {bluesky ? 'Connect Bluesky' : 'Connect an account'}
+                    </DialogTitle>
                     <DialogDescription>
-                        Facebook and Instagram connect together through one
-                        Facebook sign-in.
+                        {bluesky
+                            ? 'Sign in with your handle and an app password.'
+                            : 'Facebook and Instagram connect together through one Facebook sign-in.'}
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {platforms.map((platform) => {
-                        const configured = metaPlatforms.includes(platform.key)
-                            ? metaConfigured
-                            : platform.key !== 'threads' || threadsConfigured;
-                        const href = configured ? platform.connect : null;
-                        const body = (
-                            <>
-                                <PlatformIcon platform={platform.key} />
-                                <span className="text-sm font-medium">
-                                    {platform.label}
-                                </span>
-                                {!href && (
-                                    <span className="text-xs text-muted-foreground">
-                                        {platform.connect
-                                            ? 'Not configured'
-                                            : 'Coming soon'}
+                {bluesky ? (
+                    <BlueskyForm
+                        onBack={() => setBluesky(false)}
+                        onSuccess={() => setOpen(false)}
+                    />
+                ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {platforms.map((platform) => {
+                            const configured = metaPlatforms.includes(
+                                platform.key,
+                            )
+                                ? metaConfigured
+                                : platform.key !== 'threads' ||
+                                  threadsConfigured;
+                            const href = configured ? platform.connect : null;
+                            const body = (
+                                <>
+                                    <PlatformIcon platform={platform.key} />
+                                    <span className="text-sm font-medium">
+                                        {platform.label}
                                     </span>
-                                )}
-                            </>
-                        );
-                        const card =
-                            'flex flex-col items-center gap-2 rounded-xl border p-4 text-center';
+                                    {!href && (
+                                        <span className="text-xs text-muted-foreground">
+                                            {platform.connect
+                                                ? 'Not configured'
+                                                : 'Coming soon'}
+                                        </span>
+                                    )}
+                                </>
+                            );
+                            const card =
+                                'flex flex-col items-center gap-2 rounded-xl border p-4 text-center';
 
-                        return href ? (
-                            <a
-                                key={platform.key}
-                                href={href}
-                                className={`${card} transition-colors hover:border-foreground/20 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`}
-                            >
-                                {body}
-                            </a>
-                        ) : (
-                            <div
-                                key={platform.key}
-                                aria-disabled
-                                className={`${card} cursor-not-allowed opacity-50 grayscale`}
-                            >
-                                {body}
-                            </div>
-                        );
-                    })}
-                </div>
+                            const link = `${card} transition-colors hover:border-foreground/20 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none`;
 
-                {!metaConfigured && (
+                            // Bluesky's URL takes a form post, so its card opens the form instead of linking.
+                            if (platform.key === 'bluesky') {
+                                return (
+                                    <button
+                                        key={platform.key}
+                                        type="button"
+                                        onClick={() => setBluesky(true)}
+                                        className={link}
+                                    >
+                                        {body}
+                                    </button>
+                                );
+                            }
+
+                            return href ? (
+                                <a
+                                    key={platform.key}
+                                    href={href}
+                                    className={link}
+                                >
+                                    {body}
+                                </a>
+                            ) : (
+                                <div
+                                    key={platform.key}
+                                    aria-disabled
+                                    className={`${card} cursor-not-allowed opacity-50 grayscale`}
+                                >
+                                    {body}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {!metaConfigured && !bluesky && (
                     <p className="text-sm text-muted-foreground">
                         Facebook and Instagram can be connected once META_APP_ID
                         and META_APP_SECRET are configured.
                     </p>
                 )}
-                {!threadsConfigured && (
+                {!threadsConfigured && !bluesky && (
                     <p className="text-sm text-muted-foreground">
                         Threads can be connected once THREADS_APP_ID and
                         THREADS_APP_SECRET are configured.

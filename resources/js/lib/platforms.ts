@@ -1,3 +1,4 @@
+import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/BlueskyConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
 import ThreadsConnectionController from '@/actions/App/Http/Controllers/Team/ThreadsConnectionController';
 
@@ -14,7 +15,8 @@ export type PlatformKey =
 /**
  * Every platform the Connections page knows, in display order. `connect` is the
  * sign-in URL, or null while the platform is not supported yet. One Meta login
- * connects both Facebook and Instagram, so they share a URL.
+ * connects both Facebook and Instagram, so they share a URL. Bluesky has no
+ * sign-in page: its URL takes a handle and app password posted from a form.
  */
 export const platforms: {
     key: PlatformKey;
@@ -40,7 +42,11 @@ export const platforms: {
     { key: 'linkedin', label: 'LinkedIn', connect: null },
     { key: 'tiktok', label: 'TikTok', connect: null },
     { key: 'youtube', label: 'YouTube', connect: null },
-    { key: 'bluesky', label: 'Bluesky', connect: null },
+    {
+        key: 'bluesky',
+        label: 'Bluesky',
+        connect: BlueskyConnectionController.store.url(),
+    },
 ];
 
 // Platforms whose connect route only works once Meta app credentials are configured.

@@ -21,7 +21,7 @@ class RefreshThreadsTokens extends Command
         SocialAccount::where('provider', 'threads')
             ->where('token_expires_at', '<=', now()->addDays(30))
             ->where('token_expires_at', '>', now())
-            ->each(function (SocialAccount $account) use (&$refreshed) {
+            ->eachById(function (SocialAccount $account) use (&$refreshed) {
                 try {
                     $token = ThreadsGraph::refresh($account->access_token);
                 } catch (RuntimeException $e) {
