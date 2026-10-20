@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
- * A connected Facebook Page, Instagram professional account or Bluesky account (its access_token is the app password), owned by a team and usable in any of its sets.
+ * A connected Facebook Page, Instagram professional account, Threads or LinkedIn profile, or Bluesky account (its access_token is the app password), owned by a team and usable in any of its sets.
  *
  * @property int $id
  * @property int $team_id

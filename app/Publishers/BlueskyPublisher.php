@@ -4,11 +4,7 @@ namespace App\Publishers;
 
 use App\Models\Post;
 use App\Models\SocialAccount;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
-use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Posts to a Bluesky account with its app password: sign in, upload up to 4 images as blobs,
@@ -89,47 +85,8 @@ class BlueskyPublisher implements Publisher
      */
     private function blob(string $token, string $url): array
     {
-        // Unlike Meta, SMM fetches the media itself, so a post URL must never reach a private address.
-        // The checked IP is pinned for the request and redirects are off, so DNS rebinding cannot swap it.
-        $parts = parse_url($url);
-        // Normalized the way curl matches hosts, so the pinned entry is the one curl uses.
-        $host = rtrim(strtolower((string) ($parts['host'] ?? '')), '.');
-        $port = $parts['port'] ?? (($parts['scheme'] ?? '') === 'http' ? 80 : 443);
-        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+        [$bytes, $mime] = MediaDownload::image($url, self::MAX_IMAGE_BYTES, 'Bluesky');
 
-        if (! preg_match('/^[a-z0-9.-]+$/', $host)
-            || ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)
-            || IpUtils::isPrivateIp($ip)) {
-            throw new RuntimeException('Bluesky: an image URL does not point to a public host.');
-        }
-
-        try {
-            $file = Http::timeout(60)->withoutRedirecting()
-                ->withOptions(['proxy' => '', 'curl' => [
-                    CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"],
-                    // Aborts mid-transfer past the limit, not only on a declared Content-Length.
-                    CURLOPT_MAXFILESIZE => self::MAX_IMAGE_BYTES,
-                ]])
-                ->get($url);
-        } catch (ConnectionException|RequestException) {
-            // CURLOPT_MAXFILESIZE aborts the transfer, so an oversized image lands here too.
-            throw new RuntimeException('Bluesky: could not download an image, or it is over 1 MB.');
-        }
-
-        if ($file->failed() || $file->redirect()) {
-            throw new RuntimeException("Bluesky: could not download an image (HTTP {$file->status()}).");
-        }
-
-        $mime = (string) $file->header('Content-Type');
-
-        if (! str_starts_with($mime, 'image/')) {
-            throw new RuntimeException('Bluesky: a media URL is not an image.');
-        }
-
-        if (strlen($file->body()) > self::MAX_IMAGE_BYTES) {
-            throw new RuntimeException('Bluesky: images must be 1 MB or smaller.');
-        }
-
-        return Bluesky::upload($token, $file->body(), $mime);
+        return Bluesky::upload($token, $bytes, $mime);
     }
 }
