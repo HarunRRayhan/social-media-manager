@@ -56,6 +56,12 @@ class ThreadsPublisher implements Publisher
         }
     }
 
+    /** Needs threads_delete; Threads allows 100 deletes a day per profile. */
+    public function delete(string $remoteId, SocialAccount $account): void
+    {
+        ThreadsGraph::delete($remoteId, $account->access_token);
+    }
+
     public function url(string $remoteId, SocialAccount $account): ?string
     {
         return ThreadsGraph::get($remoteId, $account->access_token, ['fields' => 'permalink'])['permalink'] ?? null;

@@ -38,6 +38,14 @@ class MetaGraph
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public static function delete(string $path, string $token): array
+    {
+        return self::send(fn () => self::client($token)->delete(self::url($path)));
+    }
+
+    /**
      * Have Meta fetch a hosted video into an upload session (Reels publishing API). The token goes in an
      * OAuth Authorization header and the file URL in a `file_url` header, as rupload expects.
      *
@@ -90,9 +98,17 @@ class MetaGraph
         }
 
         if ($response->failed()) {
-            throw new RuntimeException('Meta: '.($response->json('error.message') ?? "HTTP {$response->status()}"));
+            $message = 'Meta: '.($response->json('error.message') ?? "HTTP {$response->status()}");
+
+            throw self::needsReconnect($response->json('error.code')) ? new ReconnectRequired($message) : new RuntimeException($message);
         }
 
         return $response->json() ?? [];
+    }
+
+    /** Graph error codes for an invalid token (190) or a missing permission (10, 200 to 299); Threads uses the same ones. */
+    public static function needsReconnect(mixed $code): bool
+    {
+        return is_int($code) && ($code === 190 || $code === 10 || ($code >= 200 && $code < 300));
     }
 }

@@ -8,6 +8,7 @@ A self-hosted app for scheduling and publishing posts to several social networks
 - **Social sets.** Group connected accounts by purpose. One account can sit in several sets, and a post goes to every account of its platform in the chosen set.
 - **Calendar.** A month view of a team's posts, filterable by social set.
 - **Publishing.** Schedule or publish now to Facebook Pages, Instagram, Threads, Bluesky, and LinkedIn (personal profile).
+- **Deleting published posts.** Delete a published post from the calendar (or `DELETE /api/v1/posts/{id}`) to take it down on every account it went out to. The post stays in SMM marked deleted.
 - **Comment automations.** Send a DM, and optionally a public reply, when a comment on a Facebook or Instagram post matches a keyword.
 - **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts, including creating sets and assigning accounts to them. Team owners and admins create tokens under Settings, API tokens.
 
@@ -35,6 +36,18 @@ Then fill in the platform credentials you need in `.env`:
 | Bluesky             | none, connect with a handle and an app password               |                                       |
 
 A platform's connect button stays disabled until its credentials are set.
+
+### Platform permissions
+
+| Platform  | Scopes SMM requests                                                                                                 | Delete uses                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Facebook  | `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `business_management`, plus the automation scopes | `DELETE /{post-id}` with the Page token (`pages_manage_posts`) |
+| Instagram | `instagram_basic`, `instagram_content_publish`, `instagram_manage_contents`, `instagram_manage_comments`, ...       | `DELETE /{ig-media-id}` (`instagram_manage_contents`)          |
+| Threads   | `threads_basic`, `threads_content_publish`, `threads_delete`                                                        | `DELETE graph.threads.com/v1.0/{media-id}` (`threads_delete`)  |
+| LinkedIn  | `openid`, `profile`, `email`, `w_member_social`                                                                     | `DELETE /rest/posts/{encoded urn}` (`w_member_social`)         |
+| Bluesky   | none, an app password                                                                                               | `com.atproto.repo.deleteRecord`                                |
+
+`instagram_manage_contents` and `threads_delete` were added for deleting, so they must be enabled in the Meta app, and accounts connected before that have to be reconnected. Until then, deleting tells you to reconnect the account. Threads allows 100 deletes a day per profile.
 
 Comment automations also need Meta's webhook pointed at `{APP_URL}/webhooks/meta` with `META_WEBHOOK_VERIFY_TOKEN`, subscribed to Page `feed` and Instagram `comments`. That needs a public HTTPS URL, so use a tunnel locally.
 

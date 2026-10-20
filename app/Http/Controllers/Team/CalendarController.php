@@ -57,6 +57,7 @@ class CalendarController extends Controller
             'set' => isset($data['set']) ? (int) $data['set'] : null,
             'posts' => $posts,
             'socialSets' => $team->socialSets()->orderBy('name')->get(['id', 'name']),
+            'canManage' => $request->user()->can('manage', $team),
         ]);
     }
 }

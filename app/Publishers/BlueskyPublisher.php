@@ -59,6 +59,18 @@ class BlueskyPublisher implements Publisher
         ])['uri'];
     }
 
+    /** The remote id is the record's at:// URI; its last segment is the record key. */
+    public function delete(string $remoteId, SocialAccount $account): void
+    {
+        $session = Bluesky::session($account->external_id, $account->access_token);
+
+        Bluesky::post('com.atproto.repo.deleteRecord', $session['accessJwt'], [
+            'repo' => $account->external_id,
+            'collection' => 'app.bsky.feed.post',
+            'rkey' => basename($remoteId),
+        ]);
+    }
+
     public function url(string $remoteId, SocialAccount $account): string
     {
         return "https://bsky.app/profile/{$account->external_id}/post/".basename($remoteId);

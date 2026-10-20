@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\TakeDownPost;
 use App\Concerns\TokenScope;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\IndexPostRequest;
@@ -83,14 +84,24 @@ class PostController extends Controller
     }
 
     /**
-     * Delete a draft or scheduled post.
+     * Delete a post. A draft or scheduled one is removed (204). A published one is taken down from every
+     * account it went out to and kept with status `deleted` (200). If an account cannot delete it, the
+     * answer is 502 with what to do in `message`: reconnect the account, or delete it in the platform's app.
      */
-    public function destroy(Request $request, int $post): Response|JsonResponse
+    public function destroy(Request $request, int $post): PostResource|Response|JsonResponse
     {
         $model = $this->ownedPost($request, $post);
 
+        if ($model->status === 'published') {
+            $errors = TakeDownPost::run($model);
+
+            return $errors === []
+                ? PostResource::make($model->load('targets.socialAccount'))
+                : response()->json(['message' => implode(' ', $errors)], 502);
+        }
+
         if (! $model->isEditable()) {
-            return response()->json(['message' => 'Only draft or scheduled posts can be deleted.'], 409);
+            return response()->json(['message' => 'Only draft, scheduled or published posts can be deleted.'], 409);
         }
 
         $model->delete();

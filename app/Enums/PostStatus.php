@@ -9,4 +9,6 @@ enum PostStatus: string
     case Queued = 'queued';
     case Published = 'published';
     case Failed = 'failed';
+    /** Taken down from the platform after publishing; the row stays as history. */
+    case Deleted = 'deleted';
 }

@@ -22,7 +22,7 @@ class PostTargetResource extends JsonResource
             'social_account_id' => $this->social_account_id,
             // Null once the account has been disconnected.
             'account' => $this->socialAccount ? $this->socialAccount->only('name', 'provider') : null,
-            /** @var 'pending'|'publishing'|'published'|'failed' */
+            /** @var 'pending'|'publishing'|'published'|'failed'|'deleted' */
             'status' => $this->status,
             'remote_id' => $this->remote_id,
             'remote_url' => $this->remote_url,

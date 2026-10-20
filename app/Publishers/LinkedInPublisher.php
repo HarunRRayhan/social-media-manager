@@ -68,6 +68,11 @@ class LinkedInPublisher implements Publisher
         return $urn;
     }
 
+    public function delete(string $remoteId, SocialAccount $account): void
+    {
+        LinkedIn::delete('posts/'.rawurlencode($remoteId), $account->access_token);
+    }
+
     public function url(string $remoteId, SocialAccount $account): string
     {
         return "https://www.linkedin.com/feed/update/{$remoteId}/";
