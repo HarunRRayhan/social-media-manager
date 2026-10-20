@@ -101,7 +101,9 @@ class LinkedIn
         }
 
         if ($response->failed()) {
-            throw new RuntimeException('LinkedIn: '.($response->json('message') ?? $response->json('error_description') ?? "HTTP {$response->status()}"));
+            $message = collect([$response->json('message'), $response->json('error_description')])->first(fn ($value) => is_string($value) && $value !== '');
+
+            throw new RuntimeException('LinkedIn: '.($message ?? "HTTP {$response->status()}"));
         }
 
         return $response;

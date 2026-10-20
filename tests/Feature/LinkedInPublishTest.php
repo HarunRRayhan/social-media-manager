@@ -99,6 +99,23 @@ test('posts linkedin cannot take fail before calling it', function (array $attri
     'private image host' => [['body' => 'Look', 'media' => ['http://169.254.169.254/a.png']], 'public host'],
 ]);
 
+test('an upload URL outside linkedin.com never receives the token', function (string $url) {
+    Http::fake([
+        'https://93.184.215.14/*' => Http::response('png-bytes', 200, ['Content-Type' => 'image/png']),
+        'https://api.linkedin.com/rest/images?action=initializeUpload' => ['value' => ['uploadUrl' => $url, 'image' => 'urn:li:image:x']],
+    ]);
+    $post = linkedinPost(['body' => 'Look', 'media' => ['https://93.184.215.14/a.png']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNotSent(fn ($r) => $r->method() === 'PUT');
+    expect($post->fresh())->status->toBe('failed')->error->toContain('unexpected upload URL');
+})->with([
+    'other host' => ['https://evil.example/upload'],
+    'lookalike host' => ['https://evillinkedin.com/upload'],
+    'plain http' => ['http://www.linkedin.com/dms-uploads/x'],
+]);
+
 test('commentary escapes reserved characters but keeps hashtags', function () {
     expect(LinkedInPublisher::commentary('a_b *c* @d [e](f) {g}|<h>~ \\ # #tag'))
         ->toBe('a\_b \*c\* \@d \[e\]\(f\) \{g\}\|\<h\>\~ \\\\ \# #tag');

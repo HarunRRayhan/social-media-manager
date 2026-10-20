@@ -61,6 +61,17 @@ test('a callback with a wrong state is refused without calling linkedin', functi
     expect($this->team->socialAccounts()->count())->toBe(0);
 });
 
+test('a member cannot finish a sign-in for a team they do not manage', function () {
+    $member = memberOf($this->team, 'member');
+
+    $this->actingAs($member)
+        ->withSession(['linkedin_oauth' => ['state' => 'right', 'team_id' => $this->team->id]])
+        ->get(route('connect.linkedin.callback', ['state' => 'right', 'code' => 'abc']))
+        ->assertForbidden();
+
+    Http::assertNothingSent();
+});
+
 test('a cancelled sign-in stores nothing', function () {
     linkedinCallback(['state' => 'right', 'error' => 'user_cancelled_authorize'])
         ->assertInertiaFlash('toast.message', 'LinkedIn connection was cancelled.');
