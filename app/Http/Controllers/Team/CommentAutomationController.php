@@ -23,6 +23,9 @@ use Inertia\Response;
  */
 class CommentAutomationController extends Controller
 {
+    // Only Meta sends the comment webhooks automations run on.
+    private const PROVIDERS = ['facebook', 'instagram'];
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -40,7 +43,7 @@ class CommentAutomationController extends Controller
                             'created_at' => $run->created_at?->toDayDateTimeString(),
                         ]),
                 ]),
-            'accounts' => $team->socialAccounts()->orderBy('provider')->orderBy('name')->get(['id', 'provider', 'name']),
+            'accounts' => $team->socialAccounts()->whereIn('provider', self::PROVIDERS)->orderBy('provider')->orderBy('name')->get(['id', 'provider', 'name']),
             // The newest published posts, for scoping an automation to some of them.
             'posts' => PostTarget::query()
                 ->where('status', 'published')
@@ -122,7 +125,7 @@ class CommentAutomationController extends Controller
     {
         $data = $request->validate([
             'social_account_ids' => ['required', 'array', 'min:1'],
-            'social_account_ids.*' => ['required', 'integer', 'distinct', Rule::exists('social_accounts', 'id')->where('team_id', $team->id)],
+            'social_account_ids.*' => ['required', 'integer', 'distinct', Rule::exists('social_accounts', 'id')->where('team_id', $team->id)->whereIn('provider', self::PROVIDERS)],
             'type' => ['required', Rule::in(CommentAutomation::TYPES)],
             'name' => ['required', 'string', 'max:255'],
             'post_remote_ids' => ['nullable', 'array', 'min:1'],

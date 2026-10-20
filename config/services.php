@@ -25,6 +25,12 @@ return [
         'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
     ],
 
+    // The Threads use case has its own app id and secret, apart from the Meta app's.
+    'threads' => [
+        'app_id' => env('THREADS_APP_ID'),
+        'app_secret' => env('THREADS_APP_SECRET'),
+    ],
+
     // A secret sign-in link for app store reviewers, /review-login/{token}, into a demo account. Unset = off.
     'review' => [
         'token' => env('REVIEW_LOGIN_TOKEN'),

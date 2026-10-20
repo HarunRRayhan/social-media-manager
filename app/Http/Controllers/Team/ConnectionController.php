@@ -31,6 +31,7 @@ class ConnectionController extends Controller
             'socialSets' => $team->socialSets()->orderBy('name')->get(['id', 'name']),
             'canManage' => $canManage,
             'metaConfigured' => filled(config('services.meta.app_id')),
+            'threadsConfigured' => filled(config('services.threads.app_id')),
             // A Facebook sign-in waiting for the user to pick its accounts; opens the picker dialog.
             'pending' => $canManage ? MetaConnectionController::candidates($request, $team) : null,
         ]);

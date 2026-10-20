@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('posts:publish-due')->everyFiveMinutes()->withoutOverlapping(10);
 Schedule::command('social-sets:purge')->daily();
+Schedule::command('threads:refresh-tokens')->daily();

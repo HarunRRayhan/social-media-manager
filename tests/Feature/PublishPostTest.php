@@ -239,11 +239,11 @@ test('a post with no connected account in its set fails', function () {
 });
 
 test('a platform without a publisher still fails', function () {
-    $post = queuedPost(['platform' => 'threads']);
+    $post = queuedPost(['platform' => 'x']);
 
     PublishPost::dispatchSync($post->id);
 
-    expect($post->fresh())->status->toBe('failed')->error->toBe('No publisher for threads');
+    expect($post->fresh())->status->toBe('failed')->error->toBe('No publisher for x');
 });
 
 test('accounts outside the post set are not used', function () {

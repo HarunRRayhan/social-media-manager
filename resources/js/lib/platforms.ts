@@ -1,5 +1,6 @@
 import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/BlueskyConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
+import ThreadsConnectionController from '@/actions/App/Http/Controllers/Team/ThreadsConnectionController';
 
 export type PlatformKey =
     | 'facebook'
@@ -32,7 +33,11 @@ export const platforms: {
         label: 'Instagram',
         connect: MetaConnectionController.redirect.url(),
     },
-    { key: 'threads', label: 'Threads', connect: null },
+    {
+        key: 'threads',
+        label: 'Threads',
+        connect: ThreadsConnectionController.redirect.url(),
+    },
     { key: 'x', label: 'X', connect: null },
     { key: 'linkedin', label: 'LinkedIn', connect: null },
     { key: 'tiktok', label: 'TikTok', connect: null },
