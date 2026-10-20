@@ -8,8 +8,8 @@ A self-hosted app for scheduling and publishing posts to several social networks
 - **Social sets.** Group connected accounts by purpose. One account can sit in several sets, and a post goes to every account of its platform in the chosen set.
 - **Calendar.** A month view of a team's posts, filterable by social set.
 - **Publishing.** Schedule or publish now to Facebook Pages, Instagram, Threads, Bluesky, and LinkedIn (personal profile).
-- **Comment automations.** Auto-reply or send a DM when someone comments on a Facebook or Instagram post.
-- **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts. Create tokens under Settings, API tokens.
+- **Comment automations.** Send a DM, and optionally a public reply, when a comment on a Facebook or Instagram post matches a keyword.
+- **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts. Team owners and admins create tokens under Settings, API tokens.
 
 ## Stack
 
@@ -17,9 +17,12 @@ Laravel 13 (PHP 8.4), Inertia with React and TypeScript, Fortify for auth, Sanct
 
 ## Local setup
 
+You need PHP 8.4, Composer, Node 22, and PostgreSQL. Create a database and set the `DB_*` values in `.env` (copied from `.env.example`) before running setup.
+
 ```bash
 composer setup   # install, copy .env, generate key, migrate, build assets
-composer dev     # run the dev processes (app server, queue, Vite)
+composer dev     # app server, queue, logs, and Vite
+php artisan schedule:work   # needed for scheduled posts to publish
 ```
 
 Then fill in the platform credentials you need in `.env`:
@@ -32,6 +35,8 @@ Then fill in the platform credentials you need in `.env`:
 | Bluesky | none, connect with a handle and an app password | |
 
 A platform's connect button stays disabled until its credentials are set.
+
+Comment automations also need Meta's webhook pointed at `{APP_URL}/webhooks/meta` with `META_WEBHOOK_VERIFY_TOKEN`, subscribed to Page `feed` and Instagram `comments`. That needs a public HTTPS URL, so use a tunnel locally.
 
 ## Scheduled jobs
 
