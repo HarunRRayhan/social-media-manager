@@ -44,7 +44,7 @@ test('a threads text post is created as a text container and published', functio
     Http::assertSent(fn ($r) => $r->url() === th('u1/threads') && $r['media_type'] === 'TEXT' && $r['text'] === 'Hello Threads' && $r->hasHeader('Authorization', 'Bearer tt'));
     Http::assertSent(fn ($r) => $r->url() === th('u1/threads_publish') && $r['creation_id'] === 'c1');
     Http::assertSentCount(5); // create, two status checks, publish, permalink
-    Sleep::assertSlept(fn ($duration) => $duration->totalSeconds === 30); // Meta's recommended pause before publishing
+    Sleep::assertSlept(fn ($duration) => (int) $duration->totalSeconds === 30); // Meta's recommended pause before publishing
     expect($post->targets()->sole())->status->toBe('published')->remote_id->toBe('t1')->remote_url->toBe('https://www.threads.com/@harun/post/abc');
 });
 
