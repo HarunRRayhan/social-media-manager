@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { edit } from '@/routes/security';
+import { edit as editProfile } from '@/routes/profile';
 import type { Props } from '@/components/manage-passkeys';
 import ManagePasskeys from '@/components/manage-passkeys';
 
@@ -21,7 +22,11 @@ export default function Security(props: Props) {
 Security.layout = {
     breadcrumbs: [
         {
-            title: 'Security settings',
+            title: 'Settings',
+            href: editProfile(),
+        },
+        {
+            title: 'Security',
             href: edit(),
         },
     ],

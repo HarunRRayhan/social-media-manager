@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useInitials } from '@/hooks/use-initials';
 import type { User } from '@/types';
@@ -10,6 +11,7 @@ export function UserInfo({
     showEmail?: boolean;
 }) {
     const getInitials = useInitials();
+    const role = usePage().props.auth.currentTeam?.role;
 
     return (
         <>
@@ -21,10 +23,16 @@ export function UserInfo({
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
-                {showEmail && (
+                {showEmail ? (
                     <span className="truncate text-xs text-muted-foreground">
                         {user.email}
                     </span>
+                ) : (
+                    role && (
+                        <span className="truncate text-xs text-muted-foreground capitalize">
+                            {role}
+                        </span>
+                    )
                 )}
             </div>
         </>

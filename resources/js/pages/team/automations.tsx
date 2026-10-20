@@ -37,6 +37,7 @@ import type { AutomationTypeKey } from '@/lib/automation-types';
 import { platforms } from '@/lib/platforms';
 import type { PlatformKey } from '@/lib/platforms';
 import { index } from '@/routes/automations';
+import { edit as editTeam } from '@/routes/team';
 
 type Account = { id: number; provider: 'facebook' | 'instagram'; name: string };
 
@@ -874,6 +875,10 @@ export default function Automations({
 
 Automations.layout = {
     breadcrumbs: [
+        {
+            title: 'Team',
+            href: editTeam(),
+        },
         {
             title: 'Automations',
             href: index(),

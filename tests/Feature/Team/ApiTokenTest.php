@@ -10,7 +10,8 @@ beforeEach(fn () => $this->withSession(['auth.password_confirmed_at' => time()])
 test('api token page is displayed', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('api-tokens.edit'))
-        ->assertOk();
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('settings/api-tokens'));
 });
 
 test('a whole-team token is created and its plaintext is shown once', function () {

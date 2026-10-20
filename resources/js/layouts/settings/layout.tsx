@@ -10,11 +10,11 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     return (
         <div className="px-4 py-6">
             <Heading
-                title={isTeam ? props.auth.currentTeam.name : 'Account'}
+                title={isTeam ? props.auth.currentTeam.name : 'Settings'}
                 description={
                     isTeam
-                        ? 'Manage your team, its social sets, connections and API tokens'
-                        : 'Manage your profile and account settings'
+                        ? 'Everything here belongs to your current team'
+                        : 'Manage your own profile and preferences'
                 }
             />
 
