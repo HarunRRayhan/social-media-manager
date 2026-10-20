@@ -55,6 +55,16 @@ class SocialAccount extends Model
         return $this->belongsToMany(SocialSet::class);
     }
 
+    /**
+     * Replace the sets this account posts for. Links to deleted sets stay, so restoring a set brings its accounts back.
+     *
+     * @param  array<int, int>  $ids
+     */
+    public function syncSocialSets(array $ids): void
+    {
+        $this->socialSets()->sync([...$ids, ...$this->socialSets()->onlyTrashed()->pluck('social_sets.id')]);
+    }
+
     /** @return BelongsToMany<CommentAutomation, $this> */
     public function commentAutomations(): BelongsToMany
     {

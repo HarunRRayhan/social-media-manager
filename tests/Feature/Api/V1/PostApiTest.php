@@ -268,3 +268,65 @@ test('social accounts are scoped to the token and never expose tokens', function
         ->assertJsonCount(2, 'data')
         ->assertJsonPath('data.1.social_set_ids', [$this->set->id]);
 });
+
+test('a team token creates a social set', function () {
+    $response = $this->postJson('/api/v1/social-sets', ['name' => 'Launch'], apiAs($this->token))
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Launch');
+
+    expect($this->team->socialSets()->find($response->json('data.id'))?->name)->toBe('Launch');
+});
+
+test('creating a social set validates the name', function () {
+    $this->postJson('/api/v1/social-sets', ['name' => str_repeat('a', 256)], apiAs($this->token))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
+test('a set token cannot create social sets or change memberships', function () {
+    $account = SocialAccount::factory()->for($this->team)->create();
+
+    $this->postJson('/api/v1/social-sets', ['name' => 'Launch'], apiAs($this->setToken))->assertForbidden();
+    $this->putJson("/api/v1/social-accounts/{$account->id}/social-sets", ['social_set_ids' => [$this->set->id]], apiAs($this->setToken))->assertForbidden();
+
+    expect($this->team->socialSets()->count())->toBe(2)
+        ->and($account->socialSets()->count())->toBe(0);
+});
+
+test('a team token replaces an account\'s social sets and keeps links to deleted sets', function () {
+    $account = SocialAccount::factory()->for($this->team)->create();
+    $deleted = $this->team->socialSets()->create(['name' => 'Old']);
+    $account->socialSets()->attach([$this->set->id, $deleted->id]);
+    $deleted->delete();
+
+    $this->putJson("/api/v1/social-accounts/{$account->id}/social-sets", ['social_set_ids' => [$this->otherSet->id]], apiAs($this->token))
+        ->assertOk()
+        ->assertJsonPath('data.id', $account->id)
+        ->assertJsonPath('data.social_set_ids', [$this->otherSet->id]);
+
+    expect($account->socialSets()->withTrashed()->pluck('social_sets.id')->sort()->values()->all())
+        ->toBe([$this->otherSet->id, $deleted->id]);
+
+    $this->app['auth']->forgetGuards();
+
+    $this->putJson("/api/v1/social-accounts/{$account->id}/social-sets", ['social_set_ids' => []], apiAs($this->token))
+        ->assertOk()
+        ->assertJsonPath('data.social_set_ids', []);
+});
+
+test('membership rejects another team\'s account or set and deleted sets', function () {
+    $account = SocialAccount::factory()->for($this->team)->create();
+    $foreignAccount = SocialAccount::factory()->create();
+    $foreignSet = SocialSet::factory()->create();
+    $deleted = $this->team->socialSets()->create(['name' => 'Old']);
+    $deleted->delete();
+    $url = "/api/v1/social-accounts/{$account->id}/social-sets";
+
+    $this->putJson("/api/v1/social-accounts/{$foreignAccount->id}/social-sets", ['social_set_ids' => [$this->set->id]], apiAs($this->token))->assertNotFound();
+    $this->putJson($url, ['social_set_ids' => [$foreignSet->id]], apiAs($this->token))->assertUnprocessable()->assertJsonValidationErrors(['social_set_ids.0']);
+    $this->putJson($url, ['social_set_ids' => [$deleted->id]], apiAs($this->token))->assertUnprocessable()->assertJsonValidationErrors(['social_set_ids.0']);
+    $this->putJson($url, [], apiAs($this->token))->assertUnprocessable()->assertJsonValidationErrors(['social_set_ids']);
+
+    expect($account->socialSets()->count())->toBe(0)
+        ->and($foreignAccount->socialSets()->count())->toBe(0);
+});
