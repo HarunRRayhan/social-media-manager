@@ -426,6 +426,7 @@ test('a bluesky image from a private host, not an image, or over 1 MB fails with
 })->with([
     'metadata address' => ['http://169.254.169.254/latest.png', null, 'public host'],
     'loopback' => ['http://127.0.0.1/a.png', null, 'public host'],
+    'carrier-grade NAT' => ['http://100.64.0.1/a.png', null, 'public host'],
     'not an image' => ['https://93.184.215.14/page.html', '<html>', 'not an image'],
     'too big' => ['https://93.184.215.14/big.png', str_repeat('x', 1_000_001), '1 MB or smaller'],
 ]);
