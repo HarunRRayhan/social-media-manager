@@ -1,11 +1,14 @@
 # Meta App Review
 
-What to submit so Harun's SMM (app 982527934217888) can go Live with Advanced Access.
-Until then Meta sends no real comment webhooks, so comment-to-DM cannot run.
+What to submit so Harun's SMM (app 982527934217888) gets Advanced Access.
+The app is Live, but until Advanced Access is granted, comments from people with no role on the app likely do not trigger comment automations.
 
 ## Before submitting
 
 1. Business verification for the "Harun's SMM" business portfolio (Business Settings → Security Center).
+   Submitted 2026-10-20 as Bytech, a sole proprietorship (Dhaka trade license, document type "Business Registration or
+   License Document"). The operator line on the legal pages must keep matching it. A US LLC was tried first and failed:
+   none of its documents show the phone number.
 2. App settings → Basic:
     - Privacy policy URL: https://sm.harun.dev/privacy
     - Terms of service URL: https://sm.harun.dev/terms
@@ -54,6 +57,7 @@ on the web service, `https://sm.harun.dev/review-login/{token}` signs into a dem
 
 ## Notes
 
-- Instagram comment webhooks need the app Live and `instagram_manage_comments` approved.
+- Comment webhooks need the app Live. Admin comments work with standard access; others likely need Advanced Access.
 - 2026-10-19, app unpublished: the dashboard "Test" `feed` event reached /webhooks/meta and got 200, but two
   real comments on the Page, made by the app's admin, were never delivered.
+- 2026-10-19, app Live: comment-to-DM worked on Facebook and Instagram for the admin's comments.
