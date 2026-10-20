@@ -7,6 +7,7 @@ use App\Models\PostTarget;
 use App\Publishers\FacebookPublisher;
 use App\Publishers\InstagramPublisher;
 use App\Publishers\Publisher;
+use App\Publishers\ThreadsPublisher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class PublishPost implements ShouldQueue
     public const PUBLISHERS = [
         'facebook' => FacebookPublisher::class,
         'instagram' => InstagramPublisher::class,
+        'threads' => ThreadsPublisher::class,
     ];
 
     public function __construct(public int $postId) {}

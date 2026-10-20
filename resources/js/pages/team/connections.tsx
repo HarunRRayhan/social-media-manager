@@ -47,10 +47,17 @@ type Props = {
     socialSets: { id: number; name: string }[];
     canManage: boolean;
     metaConfigured: boolean;
+    threadsConfigured: boolean;
     pending: { pages: Candidate[]; instagram: Candidate[] } | null;
 };
 
-function ConnectDialog({ metaConfigured }: { metaConfigured: boolean }) {
+function ConnectDialog({
+    metaConfigured,
+    threadsConfigured,
+}: {
+    metaConfigured: boolean;
+    threadsConfigured: boolean;
+}) {
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -70,11 +77,10 @@ function ConnectDialog({ metaConfigured }: { metaConfigured: boolean }) {
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {platforms.map((platform) => {
-                        const href =
-                            metaConfigured ||
-                            !metaPlatforms.includes(platform.key)
-                                ? platform.connect
-                                : null;
+                        const configured = metaPlatforms.includes(platform.key)
+                            ? metaConfigured
+                            : platform.key !== 'threads' || threadsConfigured;
+                        const href = configured ? platform.connect : null;
                         const body = (
                             <>
                                 <PlatformIcon platform={platform.key} />
@@ -117,6 +123,12 @@ function ConnectDialog({ metaConfigured }: { metaConfigured: boolean }) {
                     <p className="text-sm text-muted-foreground">
                         Facebook and Instagram can be connected once META_APP_ID
                         and META_APP_SECRET are configured.
+                    </p>
+                )}
+                {!threadsConfigured && (
+                    <p className="text-sm text-muted-foreground">
+                        Threads can be connected once THREADS_APP_ID and
+                        THREADS_APP_SECRET are configured.
                     </p>
                 )}
             </DialogContent>
@@ -447,6 +459,7 @@ export default function Connections({
     socialSets,
     canManage,
     metaConfigured,
+    threadsConfigured,
     pending,
 }: Props) {
     const groups = platforms
@@ -472,7 +485,10 @@ export default function Connections({
                         description="Accounts the team publishes to; a post goes to every account of its platform in its social set"
                     />
                     {canManage && accounts.length > 0 && (
-                        <ConnectDialog metaConfigured={metaConfigured} />
+                        <ConnectDialog
+                            metaConfigured={metaConfigured}
+                            threadsConfigured={threadsConfigured}
+                        />
                     )}
                 </div>
 
@@ -487,7 +503,10 @@ export default function Connections({
                                 : 'No accounts connected yet. Ask a team admin to connect one.'}
                         </p>
                         {canManage && (
-                            <ConnectDialog metaConfigured={metaConfigured} />
+                            <ConnectDialog
+                                metaConfigured={metaConfigured}
+                                threadsConfigured={threadsConfigured}
+                            />
                         )}
                     </div>
                 ) : (

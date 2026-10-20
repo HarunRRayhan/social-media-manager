@@ -9,6 +9,7 @@ use App\Http\Controllers\Team\SocialSetController;
 use App\Http\Controllers\Team\TeamController;
 use App\Http\Controllers\Team\TeamInvitationController;
 use App\Http\Controllers\Team\TeamMemberController;
+use App\Http\Controllers\Team\ThreadsConnectionController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('connect/meta/callback', [MetaConnectionController::class, 'callback'])->name('connect.meta.callback');
     Route::post('team/connections/meta/pick', [MetaConnectionController::class, 'store'])->name('connect.meta.store');
     Route::delete('team/connections/meta/pick', [MetaConnectionController::class, 'cancel'])->name('connect.meta.cancel');
+    Route::get('team/connections/threads/redirect', [ThreadsConnectionController::class, 'redirect'])->name('connect.threads.redirect');
+    // Registered in the Threads app as {APP_URL}/connect/threads/callback, so this path must not change.
+    Route::get('connect/threads/callback', [ThreadsConnectionController::class, 'callback'])->name('connect.threads.callback');
 
     Route::get('team/automations', [CommentAutomationController::class, 'index'])->name('automations.index');
     Route::post('team/automations', [CommentAutomationController::class, 'store'])->name('automations.store');
