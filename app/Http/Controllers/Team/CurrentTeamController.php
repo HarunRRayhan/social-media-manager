@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 class CurrentTeamController extends Controller
 {
     /**
-     * Switch to another of the user's teams. Teams they are not in 404.
+     * Switch to another of the user's teams and reload the same page for it. Teams they are not in 404.
      */
     public function update(Request $request): RedirectResponse
     {
@@ -19,6 +19,13 @@ class CurrentTeamController extends Controller
 
         $user->forceFill(['current_team_id' => $team->id])->save();
 
-        return back();
+        // Filters such as ?set= name the old team's records, so they are dropped.
+        $page = strtok(url()->previous(), '?');
+
+        if ($page === route('api-tokens.edit') && $user->cannot('manage', $team)) {
+            return to_route('dashboard');
+        }
+
+        return redirect($page);
     }
 }

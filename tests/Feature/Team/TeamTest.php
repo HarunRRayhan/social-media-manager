@@ -120,9 +120,20 @@ test('switching team stays on the current page', function () {
     $team = Team::createFor($user, 'Second');
 
     $this->actingAs($user)
-        ->from(route('calendar.index'))
+        ->from(route('calendar.index', ['set' => $user->currentTeam()->socialSets()->sole()->id]))
         ->put(route('current-team.update'), ['team_id' => $team->id])
         ->assertRedirect(route('calendar.index'));
+});
+
+test('switching to a team you only belong to leaves the API tokens page', function () {
+    $user = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->users()->attach($user, ['role' => 'member']);
+
+    $this->actingAs($user)
+        ->from(route('api-tokens.edit'))
+        ->put(route('current-team.update'), ['team_id' => $team->id])
+        ->assertRedirect(route('dashboard'));
 });
 
 test('moved pages live outside team/ and their old URLs redirect permanently', function (string $old, string $route) {
