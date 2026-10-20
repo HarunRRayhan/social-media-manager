@@ -1,7 +1,7 @@
 # Meta App Review
 
 What to submit so Harun's SMM (app 982527934217888) gets Advanced Access.
-The app is Live, but until then comments from people with no role on the app likely do not trigger comment automations.
+The app is Live, but until Advanced Access is granted, comments from people with no role on the app likely do not trigger comment automations.
 
 ## Before submitting
 
@@ -57,6 +57,7 @@ on the web service, `https://sm.harun.dev/review-login/{token}` signs into a dem
 
 ## Notes
 
-- Instagram comment webhooks need the app Live and `instagram_manage_comments` approved.
+- Comment webhooks need the app Live. Admin comments work with standard access; others likely need Advanced Access.
 - 2026-10-19, app unpublished: the dashboard "Test" `feed` event reached /webhooks/meta and got 200, but two
   real comments on the Page, made by the app's admin, were never delivered.
+- 2026-10-19, app Live: comment-to-DM worked on Facebook and Instagram for the admin's comments.
