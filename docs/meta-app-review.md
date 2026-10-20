@@ -1,12 +1,12 @@
 # Meta App Review
 
 What to submit so Harun's SMM (app 982527934217888) gets Advanced Access.
-The app is Live, but until then only people with a role on the app trigger comment automations.
+The app is Live, but until then comments from people with no role on the app likely do not trigger comment automations.
 
 ## Before submitting
 
 1. Business verification for the "Harun's SMM" business portfolio (Business Settings → Security Center).
-   Submitted 2026-10-20 as Bytech, a sole proprietorship (Dhaka trade license, business type "Business Registration or
+   Submitted 2026-10-20 as Bytech, a sole proprietorship (Dhaka trade license, document type "Business Registration or
    License Document"). The operator line on the legal pages must keep matching it. A US LLC was tried first and failed:
    none of its documents show the phone number.
 2. App settings → Basic:
