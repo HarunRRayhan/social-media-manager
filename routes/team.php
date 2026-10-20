@@ -6,6 +6,7 @@ use App\Http\Controllers\Team\CalendarController;
 use App\Http\Controllers\Team\CommentAutomationController;
 use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
+use App\Http\Controllers\Team\LinkedInConnectionController;
 use App\Http\Controllers\Team\MetaConnectionController;
 use App\Http\Controllers\Team\SocialSetController;
 use App\Http\Controllers\Team\TeamController;
@@ -88,6 +89,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('connections/threads/redirect', [ThreadsConnectionController::class, 'redirect'])->name('connect.threads.redirect');
     // Registered in the Threads app as {APP_URL}/connect/threads/callback, so this path must not change.
     Route::get('connect/threads/callback', [ThreadsConnectionController::class, 'callback'])->name('connect.threads.callback');
+    Route::get('connections/linkedin/redirect', [LinkedInConnectionController::class, 'redirect'])->name('connect.linkedin.redirect');
+    // Registered in the LinkedIn app as {APP_URL}/connect/linkedin/callback, so this path must not change.
+    Route::get('connect/linkedin/callback', [LinkedInConnectionController::class, 'callback'])->name('connect.linkedin.callback');
     Route::post('connections/bluesky', [BlueskyConnectionController::class, 'store'])
         ->middleware('throttle:login')
         ->name('connect.bluesky.store');

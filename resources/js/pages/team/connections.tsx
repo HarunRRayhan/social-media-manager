@@ -34,6 +34,7 @@ type Account = {
     username: string | null;
     avatar_url: string | null;
     social_set_ids: number[];
+    reconnect: boolean;
 };
 
 type Candidate = {
@@ -50,6 +51,7 @@ type Props = {
     canManage: boolean;
     metaConfigured: boolean;
     threadsConfigured: boolean;
+    linkedinConfigured: boolean;
     pending: { pages: Candidate[]; instagram: Candidate[] } | null;
 };
 
@@ -127,9 +129,11 @@ function BlueskyForm({
 function ConnectDialog({
     metaConfigured,
     threadsConfigured,
+    linkedinConfigured,
 }: {
     metaConfigured: boolean;
     threadsConfigured: boolean;
+    linkedinConfigured: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [bluesky, setBluesky] = useState(false);
@@ -172,8 +176,10 @@ function ConnectDialog({
                                 platform.key,
                             )
                                 ? metaConfigured
-                                : platform.key !== 'threads' ||
-                                  threadsConfigured;
+                                : platform.key === 'threads'
+                                  ? threadsConfigured
+                                  : platform.key !== 'linkedin' ||
+                                    linkedinConfigured;
                             const href = configured ? platform.connect : null;
                             const body = (
                                 <>
@@ -240,6 +246,12 @@ function ConnectDialog({
                     <p className="text-sm text-muted-foreground">
                         Threads can be connected once THREADS_APP_ID and
                         THREADS_APP_SECRET are configured.
+                    </p>
+                )}
+                {!linkedinConfigured && !bluesky && (
+                    <p className="text-sm text-muted-foreground">
+                        LinkedIn can be connected once LINKEDIN_CLIENT_ID and
+                        LINKEDIN_CLIENT_SECRET are configured.
                     </p>
                 )}
             </DialogContent>
@@ -487,6 +499,11 @@ function AccountRow({
                             @{account.username}
                         </p>
                     )}
+                    {account.reconnect && (
+                        <Badge variant="destructive" className="mt-1">
+                            Reconnect needed
+                        </Badge>
+                    )}
                 </div>
             </div>
 
@@ -571,6 +588,7 @@ export default function Connections({
     canManage,
     metaConfigured,
     threadsConfigured,
+    linkedinConfigured,
     pending,
 }: Props) {
     const groups = platforms
@@ -599,6 +617,7 @@ export default function Connections({
                         <ConnectDialog
                             metaConfigured={metaConfigured}
                             threadsConfigured={threadsConfigured}
+                            linkedinConfigured={linkedinConfigured}
                         />
                     )}
                 </div>
@@ -617,6 +636,7 @@ export default function Connections({
                             <ConnectDialog
                                 metaConfigured={metaConfigured}
                                 threadsConfigured={threadsConfigured}
+                                linkedinConfigured={linkedinConfigured}
                             />
                         )}
                     </div>

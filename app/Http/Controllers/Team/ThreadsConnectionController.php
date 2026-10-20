@@ -6,9 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Publishers\ThreadsGraph;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
-use Inertia\Inertia;
 use RuntimeException;
 
 /**
@@ -16,6 +13,8 @@ use RuntimeException;
  */
 class ThreadsConnectionController extends Controller
 {
+    use ConnectsWithOAuth;
+
     private const SCOPES = ['threads_basic', 'threads_content_publish'];
 
     /**
@@ -23,12 +22,8 @@ class ThreadsConnectionController extends Controller
      */
     public function redirect(Request $request): RedirectResponse
     {
-        $team = $request->user()->currentTeam();
-        Gate::authorize('manage', $team);
         abort_unless(filled(config('services.threads.app_id')), 404);
-
-        $state = Str::random(40);
-        $request->session()->put('threads_oauth', ['state' => $state, 'team_id' => $team->id]);
+        $state = $this->startOAuth($request, 'threads_oauth');
 
         return redirect()->away('https://threads.com/oauth/authorize?'.http_build_query([
             'client_id' => config('services.threads.app_id'),
@@ -44,14 +39,11 @@ class ThreadsConnectionController extends Controller
      */
     public function callback(Request $request): RedirectResponse
     {
-        $flow = $request->session()->pull('threads_oauth');
+        $team = $this->finishOAuth($request, 'threads_oauth');
 
-        if (! $flow || ! is_string($request->query('state')) || ! hash_equals($flow['state'], $request->query('state'))) {
+        if (! $team) {
             return $this->back('error', __('That Threads sign-in expired or did not start here. Please try again.'));
         }
-
-        $team = $request->user()->teams()->whereKey($flow['team_id'])->first();
-        abort_unless($team && $request->user()->can('manage', $team), 403);
 
         if (! is_string($request->query('code'))) {
             return $this->back('error', __('Threads connection was cancelled.'));
@@ -78,12 +70,5 @@ class ThreadsConnectionController extends Controller
         );
 
         return $this->back('success', __('Connected @:username on Threads.', ['username' => $me['username'] ?? $me['id']]));
-    }
-
-    private function back(string $type, string $message): RedirectResponse
-    {
-        Inertia::flash('toast', ['type' => $type, 'message' => $message]);
-
-        return to_route('connections.index');
     }
 }

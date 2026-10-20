@@ -7,6 +7,7 @@ use App\Models\PostTarget;
 use App\Publishers\BlueskyPublisher;
 use App\Publishers\FacebookPublisher;
 use App\Publishers\InstagramPublisher;
+use App\Publishers\LinkedInPublisher;
 use App\Publishers\Publisher;
 use App\Publishers\ThreadsPublisher;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,6 +31,7 @@ class PublishPost implements ShouldQueue
         'instagram' => InstagramPublisher::class,
         'threads' => ThreadsPublisher::class,
         'bluesky' => BlueskyPublisher::class,
+        'linkedin' => LinkedInPublisher::class,
     ];
 
     public function __construct(public int $postId) {}

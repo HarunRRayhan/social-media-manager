@@ -1,4 +1,5 @@
 import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/BlueskyConnectionController';
+import LinkedInConnectionController from '@/actions/App/Http/Controllers/Team/LinkedInConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
 import ThreadsConnectionController from '@/actions/App/Http/Controllers/Team/ThreadsConnectionController';
 
@@ -39,7 +40,11 @@ export const platforms: {
         connect: ThreadsConnectionController.redirect.url(),
     },
     { key: 'x', label: 'X', connect: null },
-    { key: 'linkedin', label: 'LinkedIn', connect: null },
+    {
+        key: 'linkedin',
+        label: 'LinkedIn',
+        connect: LinkedInConnectionController.redirect.url(),
+    },
     { key: 'tiktok', label: 'TikTok', connect: null },
     { key: 'youtube', label: 'YouTube', connect: null },
     {

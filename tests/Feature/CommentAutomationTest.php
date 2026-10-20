@@ -231,10 +231,12 @@ test('managers create, edit, toggle and delete automations within their team', f
 
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => [$this->page->id, $foreign->id]])->assertSessionHasErrors('social_account_ids.1');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => []])->assertSessionHasErrors('social_account_ids');
-    // Only Meta sends comment webhooks, so a Threads or Bluesky account can't be picked.
+    // Only Meta sends comment webhooks, so a Threads, LinkedIn or Bluesky account can't be picked.
     $threads = SocialAccount::factory()->for($this->team)->create(['provider' => 'threads']);
+    $linkedin = SocialAccount::factory()->for($this->team)->create(['provider' => 'linkedin', 'external_id' => 'urn:li:person:abc']);
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => [$threads->id]])->assertSessionHasErrors('social_account_ids.0');
-    $this->actingAs($admin)->get(route('automations.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('accounts', fn ($accounts) => collect($accounts)->doesntContain('id', $threads->id)));
+    $this->actingAs($admin)->post(route('automations.store'), [...$data, 'social_account_ids' => [$linkedin->id]])->assertSessionHasErrors('social_account_ids.0');
+    $this->actingAs($admin)->get(route('automations.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('accounts', fn ($accounts) => collect($accounts)->doesntContain('id', $threads->id) && collect($accounts)->doesntContain('id', $linkedin->id)));
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'keywords' => []])->assertSessionHasErrors('keywords');
     $this->actingAs($admin)->post(route('automations.store'), [...$data, 'type' => 'story_reply'])->assertSessionHasErrors('type');
     // Picking posts but none must not widen to every post.

@@ -31,6 +31,12 @@ return [
         'app_secret' => env('THREADS_APP_SECRET'),
     ],
 
+    // A LinkedIn app with the "Sign In with LinkedIn using OpenID Connect" and "Share on LinkedIn" products.
+    'linkedin' => [
+        'client_id' => env('LINKEDIN_CLIENT_ID'),
+        'client_secret' => env('LINKEDIN_CLIENT_SECRET'),
+    ],
+
     // A secret sign-in link for app store reviewers, /review-login/{token}, into a demo account. Unset = off.
     'review' => [
         'token' => env('REVIEW_LOGIN_TOKEN'),

@@ -20,7 +20,7 @@ class SocialAccountResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            /** @var 'facebook'|'instagram'|'threads' */
+            /** @var 'facebook'|'instagram'|'threads'|'bluesky'|'linkedin' */
             'provider' => $this->provider,
             'name' => $this->name,
             'username' => $this->username,
