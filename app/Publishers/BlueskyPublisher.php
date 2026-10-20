@@ -18,6 +18,9 @@ class BlueskyPublisher implements Publisher
 
     private const MAX_IMAGES = 4;
 
+    // Bluesky's blob limit for images.
+    private const MAX_IMAGE_BYTES = 1_000_000;
+
     public function publish(Post $post, SocialAccount $account): string
     {
         $text = (string) $post->body;
@@ -84,16 +87,39 @@ class BlueskyPublisher implements Publisher
      */
     private function blob(string $token, string $url): array
     {
+        // Unlike Meta, SMM fetches the media itself, so a post URL must never reach a private address.
+        // The checked IP is pinned for the request and redirects are off, so DNS rebinding cannot swap it.
+        $parts = parse_url($url);
+        $host = (string) ($parts['host'] ?? '');
+        $port = $parts['port'] ?? (($parts['scheme'] ?? '') === 'http' ? 80 : 443);
+        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            throw new RuntimeException('Bluesky: an image URL does not point to a public host.');
+        }
+
         try {
-            $file = Http::timeout(60)->get($url);
+            $file = Http::timeout(60)->withoutRedirecting()
+                ->withOptions(['curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:{$ip}"]]])
+                ->get($url);
         } catch (ConnectionException) {
             throw new RuntimeException('Bluesky: could not download an image.');
         }
 
-        if ($file->failed()) {
+        if ($file->failed() || $file->redirect()) {
             throw new RuntimeException("Bluesky: could not download an image (HTTP {$file->status()}).");
         }
 
-        return Bluesky::upload($token, $file->body(), $file->header('Content-Type') ?: 'image/jpeg');
+        $mime = (string) $file->header('Content-Type');
+
+        if (! str_starts_with($mime, 'image/')) {
+            throw new RuntimeException('Bluesky: a media URL is not an image.');
+        }
+
+        if (strlen($file->body()) > self::MAX_IMAGE_BYTES) {
+            throw new RuntimeException('Bluesky: images must be 1 MB or smaller.');
+        }
+
+        return Bluesky::upload($token, $file->body(), $mime);
     }
 }

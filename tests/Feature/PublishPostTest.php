@@ -381,12 +381,12 @@ test('a bluesky image is uploaded as a blob and embedded', function () {
     $this->set->socialAccounts()->attach($sky);
     $blob = ['$type' => 'blob', 'ref' => ['$link' => 'bafy'], 'mimeType' => 'image/png', 'size' => 3];
     Http::fake([
-        'https://cdn/a.png' => Http::response('png', 200, ['Content-Type' => 'image/png']),
+        'https://93.184.215.14/a.png' => Http::response('png', 200, ['Content-Type' => 'image/png']),
         bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h', 'accessJwt' => 'jwt'],
         bluesky('com.atproto.repo.uploadBlob') => ['blob' => $blob],
         bluesky('com.atproto.repo.createRecord') => ['uri' => 'at://did:plc:abc/app.bsky.feed.post/3k1'],
     ]);
-    $post = queuedPost(['platform' => 'bluesky', 'body' => 'Look', 'media' => ['https://cdn/a.png']]);
+    $post = queuedPost(['platform' => 'bluesky', 'body' => 'Look', 'media' => ['https://93.184.215.14/a.png']]);
 
     PublishPost::dispatchSync($post->id);
 
@@ -408,4 +408,24 @@ test('a bluesky post over 300 characters or with a video fails before signing in
 })->with([
     'too long' => [['body' => str_repeat('অ', 301)], 'limited to 300 characters'],
     'video' => [['body' => 'Watch', 'media' => ['https://cdn/clip.mp4']], 'video posts are not supported'],
+]);
+
+test('a bluesky image from a private host, not an image, or over 1 MB fails without uploading', function (string $url, ?string $body, string $error) {
+    $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
+    $this->set->socialAccounts()->attach($sky);
+    Http::fake([
+        'https://93.184.215.14/*' => Http::response($body, 200, ['Content-Type' => str_ends_with($url, '.html') ? 'text/html' : 'image/png']),
+        bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h', 'accessJwt' => 'jwt'],
+    ]);
+    $post = queuedPost(['platform' => 'bluesky', 'body' => 'Look', 'media' => [$url]]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNotSent(fn ($r) => str_contains($r->url(), 'uploadBlob') || str_contains($r->url(), 'createRecord'));
+    expect($post->fresh())->status->toBe('failed')->error->toContain($error);
+})->with([
+    'metadata address' => ['http://169.254.169.254/latest.png', null, 'public host'],
+    'loopback' => ['http://127.0.0.1/a.png', null, 'public host'],
+    'not an image' => ['https://93.184.215.14/page.html', '<html>', 'not an image'],
+    'too big' => ['https://93.184.215.14/big.png', str_repeat('x', 1_000_001), '1 MB or smaller'],
 ]);
