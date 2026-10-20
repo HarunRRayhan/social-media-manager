@@ -13,8 +13,7 @@ use RuntimeException;
  */
 class ThreadsPublisher implements Publisher
 {
-    /** Status checks for media containers, shared by all of a post's items: now, then after 5, 10, 15... seconds (about 4.5 minutes in total). */
-    // 5+10+...+30s: at most 105s per wait, so a carousel stays well inside the job timeout.
+    /** Status checks for media containers, shared by all of a post's items: now, then after 5, 10, 15, 20, 25 seconds (75s in total), so a carousel stays well inside the job timeout. */
     private const POLLS = 6;
 
     public function publish(Post $post, SocialAccount $account): string
@@ -91,7 +90,7 @@ class ThreadsPublisher implements Publisher
                 }
             }
 
-            if ($containers !== []) {
+            if ($containers !== [] && $i < $polls) {
                 Sleep::for($i * 5)->seconds();
             }
         }
