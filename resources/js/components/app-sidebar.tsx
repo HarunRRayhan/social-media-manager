@@ -17,6 +17,7 @@ import { dashboard } from '@/routes';
 import { edit as editApiTokens } from '@/routes/api-tokens';
 import { edit as editAppearance } from '@/routes/appearance';
 import { index as automations } from '@/routes/automations';
+import { index as calendar } from '@/routes/calendar';
 import { index as connections } from '@/routes/connections';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
@@ -44,6 +45,7 @@ export function AppSidebar() {
             items: [
                 { title: 'General', href: editTeam() },
                 { title: 'Members', href: teamMembers() },
+                { title: 'Calendar', href: calendar() },
                 { title: 'Social sets', href: socialSets() },
                 { title: 'Connections', href: connections() },
                 { title: 'Automations', href: automations() },

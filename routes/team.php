@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Team\ApiTokenController;
 use App\Http\Controllers\Team\BlueskyConnectionController;
+use App\Http\Controllers\Team\CalendarController;
 use App\Http\Controllers\Team\CommentAutomationController;
 use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
@@ -54,6 +55,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('team/social-sets/{socialSet}/restore', [SocialSetController::class, 'restore'])
         ->whereNumber('socialSet')
         ->name('social-sets.restore');
+
+    Route::get('team/calendar', [CalendarController::class, 'index'])->name('calendar.index');
 
     Route::get('team/connections', [ConnectionController::class, 'index'])->name('connections.index');
     Route::put('team/connections/{account}', [ConnectionController::class, 'update'])
