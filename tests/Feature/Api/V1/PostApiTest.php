@@ -192,17 +192,19 @@ test('a draft or scheduled post can be deleted', function () {
     $this->assertModelMissing($post);
 });
 
-test('editing or deleting a published post returns 409', function () {
+test('editing a published post or deleting a failed one returns 409', function () {
     $headers = apiAs($this->token);
     $post = Post::factory()->for($this->set)->create(['status' => 'published']);
+    $failed = Post::factory()->for($this->set)->create(['status' => 'failed']);
 
     $this->patchJson("/api/v1/posts/{$post->id}", ['body' => 'Too late'], $headers)
         ->assertConflict();
 
-    $this->deleteJson("/api/v1/posts/{$post->id}", [], $headers)
+    $this->deleteJson("/api/v1/posts/{$failed->id}", [], $headers)
         ->assertConflict();
 
     $this->assertDatabaseHas('posts', ['id' => $post->id, 'status' => 'published', 'body' => $post->body]);
+    $this->assertDatabaseHas('posts', ['id' => $failed->id, 'status' => 'failed']);
 });
 
 test('other teams posts return 404', function () {

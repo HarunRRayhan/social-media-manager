@@ -32,6 +32,7 @@ Paste one block per permission under Use cases → Permissions and features → 
 | `pages_manage_engagement`   | Posts the optional public reply under that comment, for example "Sent you a DM".                                              |
 | `instagram_basic`           | Reads the connected Instagram professional account's username and picture, and the link to each post SMM publishes.           |
 | `instagram_content_publish` | Publishes the posts the person schedules in SMM to their Instagram professional account.                                      |
+| `instagram_manage_contents` | Deletes a post SMM published to the Instagram account when the person chooses Delete on it in SMM.                            |
 | `instagram_manage_comments` | Receives comment webhooks for the account's posts and posts the optional public reply.                                        |
 | `instagram_manage_messages` | Sends one private reply (Instagram DM) to the person who commented the keyword.                                               |
 

@@ -15,7 +15,7 @@ class ThreadsConnectionController extends Controller
 {
     use ConnectsWithOAuth;
 
-    private const SCOPES = ['threads_basic', 'threads_content_publish'];
+    private const SCOPES = ['threads_basic', 'threads_content_publish', 'threads_delete'];
 
     /**
      * Send the user to the Threads authorization window.

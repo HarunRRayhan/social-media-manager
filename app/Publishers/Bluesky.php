@@ -62,7 +62,10 @@ class Bluesky
         }
 
         if ($response->failed()) {
-            throw new RuntimeException('Bluesky: '.($response->json('message') ?? $response->json('error') ?? "HTTP {$response->status()}"));
+            $message = 'Bluesky: '.($response->json('message') ?? $response->json('error') ?? "HTTP {$response->status()}");
+
+            // 401 is a revoked or changed app password.
+            throw $response->status() === 401 ? new ReconnectRequired($message) : new RuntimeException($message);
         }
 
         return $response->json() ?? [];

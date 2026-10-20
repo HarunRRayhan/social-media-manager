@@ -28,6 +28,8 @@ class MetaConnectionController extends Controller
         'business_management',
         'instagram_basic',
         'instagram_content_publish',
+        // Deleting a published Instagram post from SMM.
+        'instagram_manage_contents',
         // Comment automations: receive comment webhooks, send private replies, post public replies.
         'pages_manage_metadata',
         'pages_messaging',

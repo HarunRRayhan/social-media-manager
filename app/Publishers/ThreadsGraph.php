@@ -36,6 +36,14 @@ class ThreadsGraph
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public static function delete(string $path, string $token): array
+    {
+        return self::send(fn () => Http::timeout(30)->withToken($token)->delete(self::HOST.self::VERSION.'/'.$path));
+    }
+
+    /**
      * Swap an authorization code for a short-lived token, then that for a 60-day one.
      *
      * @return array<string, mixed>
@@ -85,7 +93,9 @@ class ThreadsGraph
         }
 
         if ($response->failed()) {
-            throw new RuntimeException('Threads: '.($response->json('error.message') ?? $response->json('error_message') ?? "HTTP {$response->status()}"));
+            $message = 'Threads: '.($response->json('error.message') ?? $response->json('error_message') ?? "HTTP {$response->status()}");
+
+            throw MetaGraph::needsReconnect($response->json('error.code')) ? new ReconnectRequired($message) : new RuntimeException($message);
         }
 
         return $response->json() ?? [];

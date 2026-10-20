@@ -48,6 +48,12 @@ class FacebookPublisher implements Publisher
         return (string) $id;
     }
 
+    /** A feed or photo post id, or a Reel's video id; both delete the same way with the page token. */
+    public function delete(string $remoteId, SocialAccount $account): void
+    {
+        MetaGraph::delete($remoteId, $account->access_token);
+    }
+
     public function url(string $remoteId, SocialAccount $account): string
     {
         return "https://www.facebook.com/{$remoteId}";

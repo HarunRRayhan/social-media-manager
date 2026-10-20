@@ -50,6 +50,12 @@ class InstagramPublisher implements Publisher
         return (string) MetaGraph::post("{$ig}/media_publish", $token, ['creation_id' => $creation])['id'];
     }
 
+    /** Needs instagram_manage_contents. A carousel goes as a whole, by the album id that publishing returned. */
+    public function delete(string $remoteId, SocialAccount $account): void
+    {
+        MetaGraph::delete($remoteId, $account->access_token);
+    }
+
     public function url(string $remoteId, SocialAccount $account): ?string
     {
         return MetaGraph::get($remoteId, $account->access_token, ['fields' => 'permalink'])['permalink'] ?? null;

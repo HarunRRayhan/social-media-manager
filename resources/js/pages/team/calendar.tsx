@@ -1,8 +1,18 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import PostController from '@/actions/App/Http/Controllers/Team/PostController';
 import Heading from '@/components/heading';
 import PlatformIcon from '@/components/platform-icon';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
@@ -17,7 +27,13 @@ import { index } from '@/routes/calendar';
 type CalendarPost = {
     id: number;
     platform: PlatformKey;
-    status: 'draft' | 'scheduled' | 'queued' | 'published' | 'failed';
+    status:
+        | 'draft'
+        | 'scheduled'
+        | 'queued'
+        | 'published'
+        | 'failed'
+        | 'deleted';
     preview: string;
     at: string;
     social_set: string;
@@ -28,6 +44,7 @@ type Props = {
     set: number | null;
     posts: CalendarPost[];
     socialSets: { id: number; name: string }[];
+    canManage: boolean;
 };
 
 const statusColors: Record<CalendarPost['status'], string> = {
@@ -38,6 +55,8 @@ const statusColors: Record<CalendarPost['status'], string> = {
     published:
         'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     failed: 'border-destructive/40 bg-destructive/10 text-destructive',
+    deleted:
+        'border-muted-foreground/30 bg-muted text-muted-foreground line-through',
 };
 
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -49,7 +68,55 @@ const dayKey = (date: Date) =>
 const monthParam = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-export default function Calendar({ month, set, posts, socialSets }: Props) {
+function DeletePost({ post }: { post: CalendarPost }) {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <button
+                    type="button"
+                    className="ml-auto shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
+                >
+                    <Trash2 className="size-3" />
+                    <span className="sr-only">Delete post</span>
+                </button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogTitle>Delete this post from the platform?</DialogTitle>
+                <DialogDescription>
+                    It is removed from every account it went out to, along with
+                    its likes and comments. This cannot be undone. It stays here
+                    marked deleted.
+                </DialogDescription>
+                <DialogFooter className="gap-2">
+                    <DialogClose asChild>
+                        <Button variant="secondary">Cancel</Button>
+                    </DialogClose>
+                    <DialogClose asChild>
+                        <Button
+                            variant="destructive"
+                            onClick={() =>
+                                router.delete(
+                                    PostController.destroy.url(post.id),
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            Delete
+                        </Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+export default function Calendar({
+    month,
+    set,
+    posts,
+    socialSets,
+    canManage,
+}: Props) {
     const [year, monthNumber] = month.split('-').map(Number);
     const first = new Date(year, monthNumber - 1, 1);
     // Weeks start on Monday.
@@ -234,6 +301,10 @@ export default function Calendar({ month, set, posts, socialSets }: Props) {
                                             <span className="sr-only">
                                                 {post.status}
                                             </span>
+                                            {canManage &&
+                                                post.status === 'published' && (
+                                                    <DeletePost post={post} />
+                                                )}
                                         </div>
                                     ))}
                                 </div>

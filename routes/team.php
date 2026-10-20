@@ -8,6 +8,7 @@ use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
 use App\Http\Controllers\Team\LinkedInConnectionController;
 use App\Http\Controllers\Team\MetaConnectionController;
+use App\Http\Controllers\Team\PostController;
 use App\Http\Controllers\Team\SocialSetController;
 use App\Http\Controllers\Team\TeamController;
 use App\Http\Controllers\Team\TeamInvitationController;
@@ -73,6 +74,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('social-sets.restore');
 
     Route::get('calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    Route::delete('posts/{post}', [PostController::class, 'destroy'])
+        ->whereNumber('post')
+        ->name('posts.destroy');
 
     Route::get('connections', [ConnectionController::class, 'index'])->name('connections.index');
     Route::put('connections/{account}', [ConnectionController::class, 'update'])

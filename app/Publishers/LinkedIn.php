@@ -61,6 +61,18 @@ class LinkedIn
     }
 
     /**
+     * DELETE a versioned /rest resource. LinkedIn answers 204, also for one already deleted.
+     */
+    public static function delete(string $path, string $token): void
+    {
+        self::send(fn () => Http::timeout(30)->withToken($token)->withHeaders([
+            'LinkedIn-Version' => self::VERSION,
+            'X-Restli-Protocol-Version' => '2.0.0',
+            'X-RestLi-Method' => 'DELETE',
+        ])->delete(self::API.'rest/'.$path));
+    }
+
+    /**
      * PUT image bytes to the upload URL initializeUpload returned.
      */
     public static function upload(string $url, string $token, string $bytes, string $mime): void
@@ -103,7 +115,10 @@ class LinkedIn
         if ($response->failed()) {
             $message = collect([$response->json('message'), $response->json('error_description')])->first(fn ($value) => is_string($value) && $value !== '');
 
-            throw new RuntimeException('LinkedIn: '.($message ?? "HTTP {$response->status()}"));
+            $message = 'LinkedIn: '.($message ?? "HTTP {$response->status()}");
+
+            // 401 is an expired or revoked token, 403 a missing permission.
+            throw in_array($response->status(), [401, 403], true) ? new ReconnectRequired($message) : new RuntimeException($message);
         }
 
         return $response;
