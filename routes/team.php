@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Team\ApiTokenController;
+use App\Http\Controllers\Team\BlueskyConnectionController;
 use App\Http\Controllers\Team\CommentAutomationController;
 use App\Http\Controllers\Team\ConnectionController;
 use App\Http\Controllers\Team\CurrentTeamController;
@@ -65,6 +66,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('connect/meta/callback', [MetaConnectionController::class, 'callback'])->name('connect.meta.callback');
     Route::post('team/connections/meta/pick', [MetaConnectionController::class, 'store'])->name('connect.meta.store');
     Route::delete('team/connections/meta/pick', [MetaConnectionController::class, 'cancel'])->name('connect.meta.cancel');
+    Route::post('team/connections/bluesky', [BlueskyConnectionController::class, 'store'])
+        ->middleware('throttle:login')
+        ->name('connect.bluesky.store');
 
     Route::get('team/automations', [CommentAutomationController::class, 'index'])->name('automations.index');
     Route::post('team/automations', [CommentAutomationController::class, 'store'])->name('automations.store');
