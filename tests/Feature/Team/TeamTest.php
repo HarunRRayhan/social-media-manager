@@ -114,3 +114,40 @@ test('deleting an account deletes the teams it owns but not the ones it joined',
     $this->assertModelMissing($owned);
     $this->assertModelExists($joined);
 });
+
+test('switching team stays on the current page', function () {
+    $user = User::factory()->create();
+    $team = Team::createFor($user, 'Second');
+
+    $this->actingAs($user)
+        ->from(route('calendar.index', ['set' => $user->currentTeam()->socialSets()->sole()->id]))
+        ->put(route('current-team.update'), ['team_id' => $team->id])
+        ->assertRedirect(route('calendar.index'));
+});
+
+test('switching to a team you only belong to leaves the API tokens page', function () {
+    $user = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->users()->attach($user, ['role' => 'member']);
+
+    $this->actingAs($user)
+        ->from(route('api-tokens.edit'))
+        ->put(route('current-team.update'), ['team_id' => $team->id])
+        ->assertRedirect(route('dashboard'));
+});
+
+test('moved pages live outside team/ and their old URLs redirect permanently', function (string $old, string $route) {
+    expect(route($route, absolute: false))->not->toStartWith('/team/');
+
+    $this->get("{$old}?month=2026-10")->assertStatus(301)->assertRedirect(route($route, ['month' => '2026-10']));
+})->with([
+    ['/team/calendar', 'calendar.index'],
+    ['/team/connections', 'connections.index'],
+    ['/team/social-sets', 'social-sets.index'],
+    ['/team/api-tokens', 'api-tokens.edit'],
+]);
+
+test('meta and threads callback paths do not move', function () {
+    expect(route('connect.meta.callback', absolute: false))->toBe('/connect/meta/callback')
+        ->and(route('connect.threads.callback', absolute: false))->toBe('/connect/threads/callback');
+});

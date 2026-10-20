@@ -22,7 +22,7 @@ class ApiTokenController extends Controller
 
         $sets = $team->socialSets()->orderBy('name')->get(['id', 'name']);
 
-        return Inertia::render('team/api-tokens', [
+        return Inertia::render('settings/api-tokens', [
             'newApiToken' => $request->session()->get('newApiToken'),
             'socialSets' => $sets,
             'tokens' => $team

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { index } from '@/routes/team-members';
 import type { TeamRole } from '@/types';
+import { edit as editTeam } from '@/routes/team';
 
 type Member = {
     id: number;
@@ -326,7 +327,11 @@ export default function Members({ members, invitations, canManage }: Props) {
 Members.layout = {
     breadcrumbs: [
         {
-            title: 'Team members',
+            title: 'Team',
+            href: editTeam(),
+        },
+        {
+            title: 'Members',
             href: index(),
         },
     ],

@@ -13,7 +13,22 @@ use App\Http\Controllers\Team\TeamInvitationController;
 use App\Http\Controllers\Team\TeamMemberController;
 use App\Http\Controllers\Team\ThreadsConnectionController;
 use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// These pages used to live under team/; keep old links and bookmarks working.
+// The query string carries over, so a calendar link keeps its month and set filter.
+foreach ([
+    'team/calendar' => '/calendar',
+    'team/connections' => '/connections',
+    'team/social-sets' => '/social-sets',
+    'team/api-tokens' => '/settings/api-tokens',
+] as $old => $new) {
+    Route::get($old, fn (Request $request) => redirect(
+        $new.($request->getQueryString() ? '?'.$request->getQueryString() : ''),
+        301,
+    ));
+}
 
 // Every team page works on the user's current team.
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -42,38 +57,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('invitation')
         ->name('team-invitations.destroy');
 
-    Route::get('team/social-sets', [SocialSetController::class, 'index'])->name('social-sets.index');
-    Route::post('team/social-sets', [SocialSetController::class, 'store'])->name('social-sets.store');
-    Route::patch('team/social-sets/{socialSet}', [SocialSetController::class, 'update'])
+    Route::get('social-sets', [SocialSetController::class, 'index'])->name('social-sets.index');
+    Route::post('social-sets', [SocialSetController::class, 'store'])->name('social-sets.store');
+    Route::patch('social-sets/{socialSet}', [SocialSetController::class, 'update'])
         ->whereNumber('socialSet')
         ->name('social-sets.update');
-    Route::delete('team/social-sets/{socialSet}', [SocialSetController::class, 'destroy'])
+    Route::delete('social-sets/{socialSet}', [SocialSetController::class, 'destroy'])
         ->middleware(RequirePassword::class)
         ->whereNumber('socialSet')
         ->name('social-sets.destroy');
 
-    Route::post('team/social-sets/{socialSet}/restore', [SocialSetController::class, 'restore'])
+    Route::post('social-sets/{socialSet}/restore', [SocialSetController::class, 'restore'])
         ->whereNumber('socialSet')
         ->name('social-sets.restore');
 
-    Route::get('team/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    Route::get('calendar', [CalendarController::class, 'index'])->name('calendar.index');
 
-    Route::get('team/connections', [ConnectionController::class, 'index'])->name('connections.index');
-    Route::put('team/connections/{account}', [ConnectionController::class, 'update'])
+    Route::get('connections', [ConnectionController::class, 'index'])->name('connections.index');
+    Route::put('connections/{account}', [ConnectionController::class, 'update'])
         ->whereNumber('account')
         ->name('connections.update');
-    Route::delete('team/connections/{account}', [ConnectionController::class, 'destroy'])
+    Route::delete('connections/{account}', [ConnectionController::class, 'destroy'])
         ->whereNumber('account')
         ->name('connections.destroy');
-    Route::get('team/connections/meta/redirect', [MetaConnectionController::class, 'redirect'])->name('connect.meta.redirect');
+    Route::get('connections/meta/redirect', [MetaConnectionController::class, 'redirect'])->name('connect.meta.redirect');
     // Registered in the Meta app as {APP_URL}/connect/meta/callback, so this path must not change.
     Route::get('connect/meta/callback', [MetaConnectionController::class, 'callback'])->name('connect.meta.callback');
-    Route::post('team/connections/meta/pick', [MetaConnectionController::class, 'store'])->name('connect.meta.store');
-    Route::delete('team/connections/meta/pick', [MetaConnectionController::class, 'cancel'])->name('connect.meta.cancel');
-    Route::get('team/connections/threads/redirect', [ThreadsConnectionController::class, 'redirect'])->name('connect.threads.redirect');
+    Route::post('connections/meta/pick', [MetaConnectionController::class, 'store'])->name('connect.meta.store');
+    Route::delete('connections/meta/pick', [MetaConnectionController::class, 'cancel'])->name('connect.meta.cancel');
+    Route::get('connections/threads/redirect', [ThreadsConnectionController::class, 'redirect'])->name('connect.threads.redirect');
     // Registered in the Threads app as {APP_URL}/connect/threads/callback, so this path must not change.
     Route::get('connect/threads/callback', [ThreadsConnectionController::class, 'callback'])->name('connect.threads.callback');
-    Route::post('team/connections/bluesky', [BlueskyConnectionController::class, 'store'])
+    Route::post('connections/bluesky', [BlueskyConnectionController::class, 'store'])
         ->middleware('throttle:login')
         ->name('connect.bluesky.store');
 
@@ -86,13 +101,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('automation')
         ->name('automations.destroy');
 
-    Route::get('team/api-tokens', [ApiTokenController::class, 'edit'])
+    Route::get('settings/api-tokens', [ApiTokenController::class, 'edit'])
         ->middleware(RequirePassword::class)
         ->name('api-tokens.edit');
-    Route::post('team/api-tokens', [ApiTokenController::class, 'store'])
+    Route::post('settings/api-tokens', [ApiTokenController::class, 'store'])
         ->middleware(RequirePassword::class)
         ->name('api-tokens.store');
-    Route::delete('team/api-tokens/{token}', [ApiTokenController::class, 'destroy'])
+    Route::delete('settings/api-tokens/{token}', [ApiTokenController::class, 'destroy'])
         ->whereNumber('token')
         ->name('api-tokens.destroy');
 });

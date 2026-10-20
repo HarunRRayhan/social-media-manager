@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import TextLink from '@/components/text-link';
 import { edit } from '@/routes/api-tokens';
+import { edit as editProfile } from '@/routes/profile';
 
 type Token = {
     id: number;
@@ -262,6 +263,10 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
 
 ApiTokens.layout = {
     breadcrumbs: [
+        {
+            title: 'Settings',
+            href: editProfile(),
+        },
         {
             title: 'API tokens',
             href: edit(),

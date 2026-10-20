@@ -1,9 +1,15 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, UserRound, Users } from 'lucide-react';
+import {
+    CalendarDays,
+    Layers,
+    LayoutGrid,
+    Plug,
+    Settings,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { TeamSwitcher } from '@/components/team-switcher';
 import {
     Sidebar,
     SidebarContent,
@@ -27,11 +33,10 @@ import { index as teamMembers } from '@/routes/team-members';
 import type { NavGroup, NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
+    { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+    { title: 'Calendar', href: calendar(), icon: CalendarDays },
+    { title: 'Connections', href: connections(), icon: Plug },
+    { title: 'Social sets', href: socialSets(), icon: Layers },
 ];
 
 export function AppSidebar() {
@@ -45,23 +50,20 @@ export function AppSidebar() {
             items: [
                 { title: 'General', href: editTeam() },
                 { title: 'Members', href: teamMembers() },
-                { title: 'Calendar', href: calendar() },
-                { title: 'Social sets', href: socialSets() },
-                { title: 'Connections', href: connections() },
                 { title: 'Automations', href: automations() },
-                // Only owners and admins manage tokens.
-                ...(canManage
-                    ? [{ title: 'API tokens', href: editApiTokens() }]
-                    : []),
             ],
         },
         {
-            title: 'Account',
-            icon: UserRound,
+            title: 'Settings',
+            icon: Settings,
             items: [
                 { title: 'Profile', href: editProfile() },
                 { title: 'Security', href: editSecurity() },
                 { title: 'Appearance', href: editAppearance() },
+                // Only owners and admins manage tokens.
+                ...(canManage
+                    ? [{ title: 'API tokens', href: editApiTokens() }]
+                    : []),
             ],
         },
     ];
@@ -78,8 +80,6 @@ export function AppSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
-
-                <TeamSwitcher />
             </SidebarHeader>
 
             <SidebarContent>

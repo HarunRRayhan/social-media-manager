@@ -138,7 +138,11 @@ export default function General({
 General.layout = {
     breadcrumbs: [
         {
-            title: 'Team settings',
+            title: 'Team',
+            href: edit(),
+        },
+        {
+            title: 'General',
             href: edit(),
         },
     ],
