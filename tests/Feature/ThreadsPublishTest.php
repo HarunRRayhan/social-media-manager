@@ -33,6 +33,7 @@ function threadsPost(array $attributes): Post
 test('a threads text post is created as a text container and published', function () {
     Http::fake([
         th('u1/threads') => ['id' => 'c1'],
+        th('c1*') => Http::sequence()->push(['status' => 'IN_PROGRESS'])->push(['status' => 'FINISHED']),
         th('u1/threads_publish') => ['id' => 't1'],
         th('t1*') => ['permalink' => 'https://www.threads.com/@harun/post/abc'],
     ]);
@@ -42,6 +43,7 @@ test('a threads text post is created as a text container and published', functio
 
     Http::assertSent(fn ($r) => $r->url() === th('u1/threads') && $r['media_type'] === 'TEXT' && $r['text'] === 'Hello Threads' && $r->hasHeader('Authorization', 'Bearer tt'));
     Http::assertSent(fn ($r) => $r->url() === th('u1/threads_publish') && $r['creation_id'] === 'c1');
+    Http::assertSentCount(5); // create, two status checks, publish, permalink
     expect($post->targets()->sole())->status->toBe('published')->remote_id->toBe('t1')->remote_url->toBe('https://www.threads.com/@harun/post/abc');
 });
 

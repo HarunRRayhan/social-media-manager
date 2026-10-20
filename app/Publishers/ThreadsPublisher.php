@@ -33,6 +33,8 @@ class ThreadsPublisher implements Publisher
 
         if ($media === []) {
             $creation = $this->container($user, $token, ['media_type' => 'TEXT', 'text' => $post->body]);
+            // Meta advises waiting before publishing any container; a live text post failed when published right away.
+            $this->waitUntilFinished([$creation], $token);
         } elseif (count($media) === 1) {
             $creation = $this->container($user, $token, [...$this->item($media[0]), 'text' => $post->body]);
             $this->waitUntilFinished([$creation], $token);
@@ -45,7 +47,11 @@ class ThreadsPublisher implements Publisher
             $this->waitUntilFinished([$creation], $token, 5);
         }
 
-        return (string) ThreadsGraph::post("{$user}/threads_publish", $token, ['creation_id' => $creation])['id'];
+        try {
+            return (string) ThreadsGraph::post("{$user}/threads_publish", $token, ['creation_id' => $creation])['id'];
+        } catch (RuntimeException $e) {
+            throw new RuntimeException('Publish step: '.$e->getMessage(), previous: $e);
+        }
     }
 
     public function url(string $remoteId, SocialAccount $account): ?string
@@ -66,7 +72,11 @@ class ThreadsPublisher implements Publisher
      */
     private function container(string $user, string $token, array $params): string
     {
-        return (string) ThreadsGraph::post("{$user}/threads", $token, array_filter($params, fn ($value) => $value !== null))['id'];
+        try {
+            return (string) ThreadsGraph::post("{$user}/threads", $token, array_filter($params, fn ($value) => $value !== null))['id'];
+        } catch (RuntimeException $e) {
+            throw new RuntimeException('Create step: '.$e->getMessage(), previous: $e);
+        }
     }
 
     /**
