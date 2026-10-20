@@ -56,6 +56,11 @@ export default function Legal() {
                         {text}
                     </p>
                 ))}
+
+                <p className="mt-10 text-sm text-muted-foreground">
+                    SMM is operated by Binary Labs LLC, 1309 Coffeen Avenue, Ste
+                    1200, Sheridan, WY 82801, USA.
+                </p>
             </main>
         </>
     );
