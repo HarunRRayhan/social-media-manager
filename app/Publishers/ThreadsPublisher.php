@@ -33,6 +33,8 @@ class ThreadsPublisher implements Publisher
 
         if ($media === []) {
             $creation = $this->container($user, $token, ['media_type' => 'TEXT', 'text' => $post->body]);
+            // Publishing a container before it is FINISHED fails with "The requested resource does not exist", text included.
+            $this->waitUntilFinished([$creation], $token);
         } elseif (count($media) === 1) {
             $creation = $this->container($user, $token, [...$this->item($media[0]), 'text' => $post->body]);
             $this->waitUntilFinished([$creation], $token);
