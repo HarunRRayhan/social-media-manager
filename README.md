@@ -27,12 +27,12 @@ php artisan schedule:work   # needed for scheduled posts to publish
 
 Then fill in the platform credentials you need in `.env`:
 
-| Platform | Env vars | Redirect URI |
-|---|---|---|
-| Facebook, Instagram | `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | `{APP_URL}/connect/meta/callback` |
-| Threads | `THREADS_APP_ID`, `THREADS_APP_SECRET` | `{APP_URL}/connect/threads/callback` |
-| LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | `{APP_URL}/connect/linkedin/callback` |
-| Bluesky | none, connect with a handle and an app password | |
+| Platform            | Env vars                                                      | Redirect URI                          |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------- |
+| Facebook, Instagram | `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | `{APP_URL}/connect/meta/callback`     |
+| Threads             | `THREADS_APP_ID`, `THREADS_APP_SECRET`                        | `{APP_URL}/connect/threads/callback`  |
+| LinkedIn            | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`                | `{APP_URL}/connect/linkedin/callback` |
+| Bluesky             | none, connect with a handle and an app password               |                                       |
 
 A platform's connect button stays disabled until its credentials are set.
 
@@ -40,11 +40,11 @@ Comment automations also need Meta's webhook pointed at `{APP_URL}/webhooks/meta
 
 ## Scheduled jobs
 
-| Command | When |
-|---|---|
-| `posts:publish-due` | every 5 minutes |
-| `threads:refresh-tokens`, `linkedin:refresh-tokens` | daily |
-| `social-sets:purge` | daily |
+| Command                                             | When            |
+| --------------------------------------------------- | --------------- |
+| `posts:publish-due`                                 | every 5 minutes |
+| `threads:refresh-tokens`, `linkedin:refresh-tokens` | daily           |
+| `social-sets:purge`                                 | daily           |
 
 ## Checks
 
