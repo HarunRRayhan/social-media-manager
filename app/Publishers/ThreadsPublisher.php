@@ -33,7 +33,6 @@ class ThreadsPublisher implements Publisher
 
         if ($media === []) {
             $creation = $this->container($user, $token, ['media_type' => 'TEXT', 'text' => $post->body]);
-            // Meta advises waiting before publishing any container; a live text post failed when published right away.
             $this->waitUntilFinished([$creation], $token);
         } elseif (count($media) === 1) {
             $creation = $this->container($user, $token, [...$this->item($media[0]), 'text' => $post->body]);
@@ -46,6 +45,9 @@ class ThreadsPublisher implements Publisher
             // Five polls (about 50s) keep both waits inside the job's 420s timeout.
             $this->waitUntilFinished([$creation], $token, 5);
         }
+
+        // Meta recommends about 30 seconds before publishing; a FINISHED text container still failed when published sooner.
+        Sleep::for(30)->seconds();
 
         try {
             return (string) ThreadsGraph::post("{$user}/threads_publish", $token, ['creation_id' => $creation])['id'];
