@@ -180,3 +180,35 @@ test('members cannot delete posts and other teams posts are not found', function
 
     Http::assertNothingSent();
 });
+
+test('an expired meta token or a revoked bluesky app password asks to reconnect', function (string $provider, string $remoteId, string $url, array $body, int $status) {
+    Http::fake([
+        'https://bsky.social/xrpc/com.atproto.server.createSession' => Http::response(['error' => 'AuthenticationRequired', 'message' => 'Invalid identifier or password'], 401),
+        $url => Http::response($body, $status),
+    ]);
+    $post = publishedOn($provider, $remoteId);
+
+    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect this account'));
+})->with([
+    'facebook 190' => ['facebook', 'p_1', 'https://graph.facebook.com/v26.0/p_1', ['error' => ['message' => 'Session has expired', 'code' => 190]], 400],
+    'bluesky 401' => ['bluesky', 'at://did:plc:me/app.bsky.feed.post/3x', 'https://bsky.social/xrpc/com.atproto.repo.deleteRecord', [], 200],
+]);
+
+test('a post on a removed account says to delete it in the app', function () {
+    $post = publishedOn('facebook', 'p_1');
+    $post->targets()->sole()->socialAccount->delete();
+
+    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'delete it in the Facebook app'));
+    Http::assertNothingSent();
+});
+
+test('a social set token cannot delete another sets published post', function () {
+    $other = $this->team->socialSets()->create(['name' => 'Clients']);
+    $post = publishedOn('facebook', 'p_1');
+    $post->update(['social_set_id' => $other->id]);
+    $setToken = $this->team->createToken('set', [$this->set->tokenAbility()])->plainTextToken;
+
+    $this->deleteJson("/api/v1/posts/{$post->id}", [], ['Authorization' => 'Bearer '.$setToken])->assertNotFound();
+    Http::assertNothingSent();
+    expect($post->fresh()->status)->toBe('published');
+});
