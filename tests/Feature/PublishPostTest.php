@@ -239,11 +239,11 @@ test('a post with no connected account in its set fails', function () {
 });
 
 test('a platform without a publisher still fails', function () {
-    $post = queuedPost(['platform' => 'bluesky']);
+    $post = queuedPost(['platform' => 'threads']);
 
     PublishPost::dispatchSync($post->id);
 
-    expect($post->fresh())->status->toBe('failed')->error->toBe('No publisher for bluesky');
+    expect($post->fresh())->status->toBe('failed')->error->toBe('No publisher for threads');
 });
 
 test('accounts outside the post set are not used', function () {
@@ -350,3 +350,82 @@ test('the queue never hands a running publish to a second worker', function () {
     expect($retryAfter)->toBeGreaterThan(900)
         ->and($retryAfter)->toBeGreaterThan((new PublishPostTarget(1))->timeout);
 });
+
+function bluesky(string $method): string
+{
+    return "https://bsky.social/xrpc/{$method}";
+}
+
+test('a bluesky text post signs in and creates a record with a byte-offset link facet', function () {
+    $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc', 'access_token' => 'app-pass']);
+    $this->set->socialAccounts()->attach($sky);
+    Http::fake([
+        bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h.bsky.social', 'accessJwt' => 'jwt'],
+        bluesky('com.atproto.repo.createRecord') => ['uri' => 'at://did:plc:abc/app.bsky.feed.post/3kxyz', 'cid' => 'c'],
+    ]);
+    $post = queuedPost(['platform' => 'bluesky', 'body' => 'নতুন see https://harun.dev/x.']);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertSent(fn ($r) => $r->url() === bluesky('com.atproto.server.createSession') && $r['identifier'] === 'did:plc:abc' && $r['password'] === 'app-pass');
+    Http::assertSent(fn ($r) => $r->url() === bluesky('com.atproto.repo.createRecord') && $r->hasHeader('Authorization', 'Bearer jwt')
+        && $r['repo'] === 'did:plc:abc' && $r['record']['text'] === 'নতুন see https://harun.dev/x.'
+        && $r['record']['facets'] === [['index' => ['byteStart' => 17, 'byteEnd' => 36], 'features' => [['$type' => 'app.bsky.richtext.facet#link', 'uri' => 'https://harun.dev/x']]]]
+        && ! isset($r['record']['embed']));
+    expect($post->targets()->sole())->status->toBe('published')->remote_id->toBe('at://did:plc:abc/app.bsky.feed.post/3kxyz')
+        ->remote_url->toBe('https://bsky.app/profile/did:plc:abc/post/3kxyz');
+});
+
+test('a bluesky image is uploaded as a blob and embedded', function () {
+    $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
+    $this->set->socialAccounts()->attach($sky);
+    $blob = ['$type' => 'blob', 'ref' => ['$link' => 'bafy'], 'mimeType' => 'image/png', 'size' => 3];
+    Http::fake([
+        'https://93.184.215.14/a.png' => Http::response('png', 200, ['Content-Type' => 'image/png']),
+        bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h', 'accessJwt' => 'jwt'],
+        bluesky('com.atproto.repo.uploadBlob') => ['blob' => $blob],
+        bluesky('com.atproto.repo.createRecord') => ['uri' => 'at://did:plc:abc/app.bsky.feed.post/3k1'],
+    ]);
+    $post = queuedPost(['platform' => 'bluesky', 'body' => 'Look', 'media' => ['https://93.184.215.14/a.png']]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertSent(fn ($r) => $r->url() === bluesky('com.atproto.repo.uploadBlob') && $r->body() === 'png' && $r->hasHeader('Content-Type', 'image/png'));
+    Http::assertSent(fn ($r) => $r->url() === bluesky('com.atproto.repo.createRecord')
+        && $r['record']['embed'] === ['$type' => 'app.bsky.embed.images', 'images' => [['alt' => '', 'image' => $blob]]]);
+    expect($post->fresh()->status)->toBe('published');
+});
+
+test('a bluesky post over 300 characters or with a video fails before signing in', function (array $attributes, string $error) {
+    $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
+    $this->set->socialAccounts()->attach($sky);
+    $post = queuedPost(['platform' => 'bluesky', ...$attributes]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNothingSent();
+    expect($post->fresh())->status->toBe('failed')->error->toContain($error);
+})->with([
+    'too long' => [['body' => str_repeat('অ', 301)], 'limited to 300 characters'],
+    'video' => [['body' => 'Watch', 'media' => ['https://cdn/clip.mp4']], 'video posts are not supported'],
+]);
+
+test('a bluesky image from a private host, not an image, or over 1 MB fails without uploading', function (string $url, ?string $body, string $error) {
+    $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
+    $this->set->socialAccounts()->attach($sky);
+    Http::fake([
+        'https://93.184.215.14/*' => Http::response($body, 200, ['Content-Type' => str_ends_with($url, '.html') ? 'text/html' : 'image/png']),
+        bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h', 'accessJwt' => 'jwt'],
+    ]);
+    $post = queuedPost(['platform' => 'bluesky', 'body' => 'Look', 'media' => [$url]]);
+
+    PublishPost::dispatchSync($post->id);
+
+    Http::assertNotSent(fn ($r) => str_contains($r->url(), 'uploadBlob') || str_contains($r->url(), 'createRecord'));
+    expect($post->fresh())->status->toBe('failed')->error->toContain($error);
+})->with([
+    'metadata address' => ['http://169.254.169.254/latest.png', null, 'public host'],
+    'loopback' => ['http://127.0.0.1/a.png', null, 'public host'],
+    'not an image' => ['https://93.184.215.14/page.html', '<html>', 'not an image'],
+    'too big' => ['https://93.184.215.14/big.png', str_repeat('x', 1_000_001), '1 MB or smaller'],
+]);

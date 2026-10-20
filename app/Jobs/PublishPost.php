@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Post;
 use App\Models\PostTarget;
+use App\Publishers\BlueskyPublisher;
 use App\Publishers\FacebookPublisher;
 use App\Publishers\InstagramPublisher;
 use App\Publishers\Publisher;
@@ -26,6 +27,7 @@ class PublishPost implements ShouldQueue
     public const PUBLISHERS = [
         'facebook' => FacebookPublisher::class,
         'instagram' => InstagramPublisher::class,
+        'bluesky' => BlueskyPublisher::class,
     ];
 
     public function __construct(public int $postId) {}
