@@ -177,6 +177,11 @@ export default function Calendar({ month, set, posts, socialSets }: Props) {
                             return (
                                 <div
                                     key={key}
+                                    role="group"
+                                    aria-label={day.toLocaleDateString(
+                                        undefined,
+                                        { dateStyle: 'full' },
+                                    )}
                                     className={cn(
                                         'min-h-24 space-y-1 border-b border-l p-1 [&:nth-child(7n+1)]:border-l-0',
                                         !inMonth && 'bg-muted/30',
@@ -195,7 +200,11 @@ export default function Calendar({ month, set, posts, socialSets }: Props) {
                                         {day.getDate()}
                                     </p>
 
-                                    {(byDay.get(key) ?? []).map((post) => (
+                                    {/* Neighbouring months' days stay empty; their posts show on their own month. */}
+                                    {(inMonth
+                                        ? (byDay.get(key) ?? [])
+                                        : []
+                                    ).map((post) => (
                                         <div
                                             key={post.id}
                                             title={`${post.status}, ${post.social_set}: ${post.preview}`}
