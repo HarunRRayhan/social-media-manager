@@ -9,7 +9,7 @@ A self-hosted app for scheduling and publishing posts to several social networks
 - **Calendar.** A month view of a team's posts, filterable by social set.
 - **Publishing.** Schedule or publish now to Facebook Pages, Instagram, Threads, Bluesky, and LinkedIn (personal profile).
 - **Comment automations.** Send a DM, and optionally a public reply, when a comment on a Facebook or Instagram post matches a keyword.
-- **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts. Team owners and admins create tokens under Settings, API tokens.
+- **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts, including creating sets and assigning accounts to them. Team owners and admins create tokens under Settings, API tokens.
 
 ## Stack
 

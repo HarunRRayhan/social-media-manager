@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\SocialAccountResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 class SocialAccountController extends Controller
 {
@@ -29,5 +30,26 @@ class SocialAccountController extends Controller
             ->get();
 
         return SocialAccountResource::collection($accounts);
+    }
+
+    /**
+     * Replace the social sets a connected account posts for. Needs a whole-team token.
+     *
+     * Every id must be one of the team's sets that is not deleted. Links to deleted sets are kept, so restoring a set brings the account back.
+     */
+    public function updateSocialSets(Request $request, int $account): SocialAccountResource
+    {
+        $team = $this->team($request);
+        abort_unless($team->tokenCan('*'), 403, 'Only a whole-team token can change social set membership.');
+
+        $model = $team->socialAccounts()->findOrFail($account);
+        $ids = $request->validate([
+            'social_set_ids' => ['present', 'array'],
+            'social_set_ids.*' => ['integer', Rule::exists('social_sets', 'id')->where('team_id', $team->id)->whereNull('deleted_at')],
+        ])['social_set_ids'];
+
+        $model->syncSocialSets($ids);
+
+        return SocialAccountResource::make($model->load('socialSets'));
     }
 }

@@ -54,8 +54,7 @@ class ConnectionController extends Controller
             'social_set_ids.*' => ['integer', Rule::exists('social_sets', 'id')->where('team_id', $team->id)->whereNull('deleted_at')],
         ])['social_set_ids'];
 
-        // Keep links to deleted sets, so restoring a set brings its accounts back.
-        $model->socialSets()->sync([...$ids, ...$model->socialSets()->onlyTrashed()->pluck('social_sets.id')]);
+        $model->syncSocialSets($ids);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Social sets updated.')]);
 
