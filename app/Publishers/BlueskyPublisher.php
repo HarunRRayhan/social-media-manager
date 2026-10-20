@@ -5,6 +5,7 @@ namespace App\Publishers;
 use App\Models\Post;
 use App\Models\SocialAccount;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\IpUtils;
@@ -110,8 +111,9 @@ class BlueskyPublisher implements Publisher
                     CURLOPT_MAXFILESIZE => self::MAX_IMAGE_BYTES,
                 ]])
                 ->get($url);
-        } catch (ConnectionException) {
-            throw new RuntimeException('Bluesky: could not download an image.');
+        } catch (ConnectionException|RequestException) {
+            // CURLOPT_MAXFILESIZE aborts the transfer, so an oversized image lands here too.
+            throw new RuntimeException('Bluesky: could not download an image, or it is over 1 MB.');
         }
 
         if ($file->failed() || $file->redirect()) {
