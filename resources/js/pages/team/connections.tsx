@@ -1,6 +1,6 @@
 import { Form, Head, router } from '@inertiajs/react';
 import { ChevronDown, Plug, Plus, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/BlueskyConnectionController';
 import ConnectionController from '@/actions/App/Http/Controllers/Team/ConnectionController';
@@ -497,6 +497,7 @@ function SetPicker({
             closeTimer.current = setTimeout(() => setOpen(false), 150);
         }
     };
+    useEffect(() => () => clearTimeout(closeTimer.current), []);
     const inSets = socialSets.filter((set) =>
         account.social_set_ids.includes(set.id),
     );
@@ -512,7 +513,9 @@ function SetPicker({
                         type="button"
                         // Hover already opened it, so a mouse click must not toggle it shut.
                         onPointerDown={(e) =>
-                            e.pointerType === 'mouse' && e.preventDefault()
+                            e.pointerType === 'mouse' &&
+                            open &&
+                            e.preventDefault()
                         }
                         aria-label={`Social sets for ${account.name}: ${
                             inSets.map((set) => set.name).join(', ') || 'none'
@@ -564,16 +567,25 @@ function AccountRow({
     socialSets: Props['socialSets'];
     canManage: boolean;
 }) {
-    const toggleSet = (setId: number, on: boolean) =>
+    // Optimistic ids, so a second toggle before the first save returns builds on the first.
+    const [setIds, setSetIds] = useState(account.social_set_ids);
+    const ids = useRef(setIds);
+    useEffect(() => {
+        ids.current = account.social_set_ids;
+        setSetIds(account.social_set_ids);
+    }, [account.social_set_ids]);
+
+    const toggleSet = (setId: number, on: boolean) => {
+        ids.current = on
+            ? [...ids.current, setId]
+            : ids.current.filter((id) => id !== setId);
+        setSetIds(ids.current);
         router.put(
             ConnectionController.update.url(account.id),
-            {
-                social_set_ids: on
-                    ? [...account.social_set_ids, setId]
-                    : account.social_set_ids.filter((id) => id !== setId),
-            },
+            { social_set_ids: ids.current },
             { preserveScroll: true },
         );
+    };
 
     return (
         <div className="flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
@@ -603,7 +615,7 @@ function AccountRow({
 
             <div className="flex items-center gap-4 pl-13 sm:pl-0">
                 <SetPicker
-                    account={account}
+                    account={{ ...account, social_set_ids: setIds }}
                     socialSets={socialSets}
                     canManage={canManage}
                     onToggle={toggleSet}
