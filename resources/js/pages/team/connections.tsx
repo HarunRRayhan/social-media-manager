@@ -1,6 +1,7 @@
 import { Form, Head, router } from '@inertiajs/react';
-import { Plug, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, Plug, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type React from 'react';
 import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/BlueskyConnectionController';
 import ConnectionController from '@/actions/App/Http/Controllers/Team/ConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
@@ -21,6 +22,14 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { metaPlatforms, platforms } from '@/lib/platforms';
@@ -461,6 +470,94 @@ function PickDialog({ pending }: { pending: NonNullable<Props['pending']> }) {
     );
 }
 
+function SetPicker({
+    account,
+    socialSets,
+    canManage,
+    onToggle,
+}: {
+    account: Account;
+    socialSets: Props['socialSets'];
+    canManage: boolean;
+    onToggle: (setId: number, on: boolean) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const hover = (next: boolean) => (e: React.PointerEvent) => {
+        if (e.pointerType !== 'mouse') {
+            return;
+        }
+
+        clearTimeout(closeTimer.current);
+
+        // A short delay lets the pointer cross the gap between trigger and menu.
+        if (next) {
+            setOpen(true);
+        } else {
+            closeTimer.current = setTimeout(() => setOpen(false), 150);
+        }
+    };
+    useEffect(() => () => clearTimeout(closeTimer.current), []);
+    const inSets = socialSets.filter((set) =>
+        account.social_set_ids.includes(set.id),
+    );
+    const shown = inSets.slice(0, 2);
+    const rest = inSets.length - shown.length;
+
+    // modal={false} so hovering off the trigger onto the menu does not fight a focus trap.
+    return (
+        <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+            <div onPointerEnter={hover(true)} onPointerLeave={hover(false)}>
+                <DropdownMenuTrigger asChild>
+                    <button
+                        type="button"
+                        // Hover already opened it, so a mouse click must not toggle it shut.
+                        onPointerDown={(e) =>
+                            e.pointerType === 'mouse' &&
+                            open &&
+                            e.preventDefault()
+                        }
+                        aria-label={`Social sets for ${account.name}: ${
+                            inSets.map((set) => set.name).join(', ') || 'none'
+                        }`}
+                        className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                        {shown.length === 0 ? (
+                            <span className="text-sm text-muted-foreground">
+                                No sets
+                            </span>
+                        ) : (
+                            shown.map((set) => (
+                                <Badge key={set.id} variant="secondary">
+                                    {set.name}
+                                </Badge>
+                            ))
+                        )}
+                        {rest > 0 && <Badge variant="outline">+{rest}</Badge>}
+                        <ChevronDown className="size-4 text-muted-foreground" />
+                    </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48">
+                    <DropdownMenuLabel>Social sets</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {socialSets.map((set) => (
+                        <DropdownMenuCheckboxItem
+                            key={set.id}
+                            checked={account.social_set_ids.includes(set.id)}
+                            disabled={!canManage}
+                            onCheckedChange={(on) => onToggle(set.id, on)}
+                            // Keep the menu open so several sets can be toggled in a row.
+                            onSelect={(e) => e.preventDefault()}
+                        >
+                            {set.name}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </div>
+        </DropdownMenu>
+    );
+}
+
 function AccountRow({
     account,
     socialSets,
@@ -470,16 +567,25 @@ function AccountRow({
     socialSets: Props['socialSets'];
     canManage: boolean;
 }) {
-    const toggleSet = (setId: number, on: boolean) =>
+    // Optimistic ids, so a second toggle before the first save returns builds on the first.
+    const [setIds, setSetIds] = useState(account.social_set_ids);
+    const ids = useRef(setIds);
+    useEffect(() => {
+        ids.current = account.social_set_ids;
+        setSetIds(account.social_set_ids);
+    }, [account.social_set_ids]);
+
+    const toggleSet = (setId: number, on: boolean) => {
+        ids.current = on
+            ? [...ids.current, setId]
+            : ids.current.filter((id) => id !== setId);
+        setSetIds(ids.current);
         router.put(
             ConnectionController.update.url(account.id),
-            {
-                social_set_ids: on
-                    ? [...account.social_set_ids, setId]
-                    : account.social_set_ids.filter((id) => id !== setId),
-            },
+            { social_set_ids: ids.current },
             { preserveScroll: true },
         );
+    };
 
     return (
         <div className="flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
@@ -508,32 +614,12 @@ function AccountRow({
             </div>
 
             <div className="flex items-center gap-4 pl-13 sm:pl-0">
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {socialSets.map((set) => {
-                        const id = `account-${account.id}-set-${set.id}`;
-
-                        return (
-                            <div
-                                key={set.id}
-                                className="flex items-center gap-2"
-                            >
-                                <Checkbox
-                                    id={id}
-                                    checked={account.social_set_ids.includes(
-                                        set.id,
-                                    )}
-                                    disabled={!canManage}
-                                    onCheckedChange={(on) =>
-                                        toggleSet(set.id, on === true)
-                                    }
-                                />
-                                <Label htmlFor={id} className="font-normal">
-                                    {set.name}
-                                </Label>
-                            </div>
-                        );
-                    })}
-                </div>
+                <SetPicker
+                    account={{ ...account, social_set_ids: setIds }}
+                    socialSets={socialSets}
+                    canManage={canManage}
+                    onToggle={toggleSet}
+                />
 
                 {canManage && (
                     <Dialog>
