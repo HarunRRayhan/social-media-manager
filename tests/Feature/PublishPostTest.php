@@ -239,11 +239,11 @@ test('a post with no connected account in its set fails', function () {
 });
 
 test('a platform without a publisher still fails', function () {
-    $post = queuedPost(['platform' => 'x']);
+    $post = queuedPost(['platform' => 'tiktok']);
 
     PublishPost::dispatchSync($post->id);
 
-    expect($post->fresh())->status->toBe('failed')->error->toBe('No publisher for x');
+    expect($post->fresh())->status->toBe('failed')->error->toBe('No publisher for tiktok');
 });
 
 test('accounts outside the post set are not used', function () {

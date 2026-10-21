@@ -61,6 +61,7 @@ type Props = {
     metaConfigured: boolean;
     threadsConfigured: boolean;
     linkedinConfigured: boolean;
+    xConfigured: boolean;
     pending: { pages: Candidate[]; instagram: Candidate[] } | null;
 };
 
@@ -139,10 +140,12 @@ function ConnectDialog({
     metaConfigured,
     threadsConfigured,
     linkedinConfigured,
+    xConfigured,
 }: {
     metaConfigured: boolean;
     threadsConfigured: boolean;
     linkedinConfigured: boolean;
+    xConfigured: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [bluesky, setBluesky] = useState(false);
@@ -187,8 +190,9 @@ function ConnectDialog({
                                 ? metaConfigured
                                 : platform.key === 'threads'
                                   ? threadsConfigured
-                                  : platform.key !== 'linkedin' ||
-                                    linkedinConfigured;
+                                  : platform.key === 'linkedin'
+                                    ? linkedinConfigured
+                                    : platform.key !== 'x' || xConfigured;
                             const href = configured ? platform.connect : null;
                             const body = (
                                 <>
@@ -261,6 +265,12 @@ function ConnectDialog({
                     <p className="text-sm text-muted-foreground">
                         LinkedIn can be connected once LINKEDIN_CLIENT_ID and
                         LINKEDIN_CLIENT_SECRET are configured.
+                    </p>
+                )}
+                {!xConfigured && !bluesky && (
+                    <p className="text-sm text-muted-foreground">
+                        X can be connected once X_CLIENT_ID and X_CLIENT_SECRET
+                        are configured.
                     </p>
                 )}
             </DialogContent>
@@ -683,6 +693,7 @@ export default function Connections({
     metaConfigured,
     threadsConfigured,
     linkedinConfigured,
+    xConfigured,
     pending,
 }: Props) {
     const groups = platforms
@@ -712,6 +723,7 @@ export default function Connections({
                             metaConfigured={metaConfigured}
                             threadsConfigured={threadsConfigured}
                             linkedinConfigured={linkedinConfigured}
+                            xConfigured={xConfigured}
                         />
                     )}
                 </div>
@@ -731,6 +743,7 @@ export default function Connections({
                                 metaConfigured={metaConfigured}
                                 threadsConfigured={threadsConfigured}
                                 linkedinConfigured={linkedinConfigured}
+                                xConfigured={xConfigured}
                             />
                         )}
                     </div>

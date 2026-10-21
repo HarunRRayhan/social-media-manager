@@ -4,6 +4,7 @@ use App\Jobs\PublishPost;
 use App\Models\Post;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schedule;
 
 uses(RefreshDatabase::class);
 
@@ -41,5 +42,5 @@ it('does not queue a post twice', function () {
 });
 
 it('is scheduled every five minutes', function () {
-    $this->artisan('schedule:list')->expectsOutputToContain('*/5 * * * *')->assertSuccessful();
+    expect(collect(Schedule::events())->contains(fn ($event) => str_contains($event->command, 'posts:publish-due') && $event->expression === '*/5 * * * *'))->toBeTrue();
 });

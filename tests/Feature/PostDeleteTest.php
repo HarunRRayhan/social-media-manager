@@ -212,3 +212,25 @@ test('a social set token cannot delete another sets published post', function ()
     Http::assertNothingSent();
     expect($post->fresh()->status)->toBe('published');
 });
+
+test('an x post is deleted by its id with a fresh token', function () {
+    Http::fake(['https://api.x.com/2/tweets/55' => ['data' => ['deleted' => true]]]);
+    $post = publishedOn('x', '55', ['access_token' => 'xt', 'token_expires_at' => now()->addHour(), 'meta' => ['refresh_token' => 'enc']]);
+
+    deleteViaApi($post)->assertOk();
+
+    Http::assertSent(fn ($r) => $r->method() === 'DELETE' && $r->url() === 'https://api.x.com/2/tweets/55' && $r->hasHeader('Authorization', 'Bearer xt'));
+    expectDeleted($post);
+});
+
+test('x 401 asks to reconnect, another x error says to delete it in the app', function () {
+    Http::fake(['https://api.x.com/2/tweets/56' => Http::response(['title' => 'Unauthorized', 'detail' => 'Unauthorized'], 401)]);
+    $post = publishedOn('x', '56', ['token_expires_at' => now()->addHour()]);
+
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect'));
+
+    Http::fake(['https://api.x.com/2/tweets/57' => Http::response(['title' => 'Forbidden', 'detail' => 'You are not permitted to perform this action.'], 403)]);
+    $post = publishedOn('x', '57', ['token_expires_at' => now()->addHour()]);
+
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'not permitted') && str_contains($m, 'delete it in the X app'));
+});
