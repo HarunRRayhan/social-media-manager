@@ -20,7 +20,7 @@ beforeEach(function () {
     $this->set = $this->team->socialSets()->sole();
     $this->page = SocialAccount::factory()->for($this->team)->create(['external_id' => 'page1', 'name' => 'Page One', 'access_token' => 'pt']);
     $this->ig = SocialAccount::factory()->for($this->team)->instagram()->create(['external_id' => 'ig1', 'name' => 'harun', 'access_token' => 'pt']);
-    $this->set->socialAccounts()->attach([$this->page->id, $this->ig->id]);
+    $this->set->socialAccounts()->syncWithoutDetaching([$this->page->id, $this->ig->id]);
 });
 
 function g(string $path): string
@@ -258,7 +258,7 @@ test('accounts outside the post set are not used', function () {
 
 test('a partial failure publishes the post and names the failed account', function () {
     $second = SocialAccount::factory()->for($this->team)->create(['external_id' => 'page2', 'name' => 'Page Two']);
-    $this->set->socialAccounts()->attach($second);
+    $this->set->socialAccounts()->syncWithoutDetaching($second);
     Http::fake([
         g('page1/feed') => ['id' => 'page1_1'],
         g('page2/feed') => Http::response(['error' => ['message' => 'Permissions error']], 403),
@@ -358,7 +358,7 @@ function bluesky(string $method): string
 
 test('a bluesky text post signs in and creates a record with a byte-offset link facet', function () {
     $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc', 'access_token' => 'app-pass']);
-    $this->set->socialAccounts()->attach($sky);
+    $this->set->socialAccounts()->syncWithoutDetaching($sky);
     Http::fake([
         bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h.bsky.social', 'accessJwt' => 'jwt'],
         bluesky('com.atproto.repo.createRecord') => ['uri' => 'at://did:plc:abc/app.bsky.feed.post/3kxyz', 'cid' => 'c'],
@@ -378,7 +378,7 @@ test('a bluesky text post signs in and creates a record with a byte-offset link 
 
 test('a bluesky image is uploaded as a blob and embedded', function () {
     $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
-    $this->set->socialAccounts()->attach($sky);
+    $this->set->socialAccounts()->syncWithoutDetaching($sky);
     $blob = ['$type' => 'blob', 'ref' => ['$link' => 'bafy'], 'mimeType' => 'image/png', 'size' => 3];
     Http::fake([
         'https://93.184.215.14/a.png' => Http::response('png', 200, ['Content-Type' => 'image/png']),
@@ -398,7 +398,7 @@ test('a bluesky image is uploaded as a blob and embedded', function () {
 
 test('a bluesky post over 300 characters or with a video fails before signing in', function (array $attributes, string $error) {
     $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
-    $this->set->socialAccounts()->attach($sky);
+    $this->set->socialAccounts()->syncWithoutDetaching($sky);
     $post = queuedPost(['platform' => 'bluesky', ...$attributes]);
 
     PublishPost::dispatchSync($post->id);
@@ -412,7 +412,7 @@ test('a bluesky post over 300 characters or with a video fails before signing in
 
 test('a bluesky image from a private host, not an image, or over 1 MB fails without uploading', function (string $url, ?string $body, string $error) {
     $sky = SocialAccount::factory()->for($this->team)->create(['provider' => 'bluesky', 'external_id' => 'did:plc:abc']);
-    $this->set->socialAccounts()->attach($sky);
+    $this->set->socialAccounts()->syncWithoutDetaching($sky);
     Http::fake([
         'https://93.184.215.14/*' => Http::response($body, 200, ['Content-Type' => str_ends_with($url, '.html') ? 'text/html' : 'image/png']),
         bluesky('com.atproto.server.createSession') => ['did' => 'did:plc:abc', 'handle' => 'h', 'accessJwt' => 'jwt'],

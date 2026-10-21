@@ -5,12 +5,12 @@ A self-hosted app for scheduling and publishing posts to several social networks
 ## Features
 
 - **Teams.** Each team has its own connected accounts, social sets, calendar, and automations. Switch teams from the top bar.
-- **Social sets.** Group connected accounts by purpose. One account can sit in several sets, and a post goes to every account of its platform in the chosen set.
+- **Social sets.** Group connected accounts by purpose. One account can sit in several sets, and a post goes to every account of its platform in the chosen set. Every team has a Default set that always holds every connected account and cannot be deleted.
 - **Calendar.** A month view of a team's posts, filterable by social set.
 - **Publishing.** Schedule or publish now to Facebook Pages, Instagram, Threads, Bluesky, and LinkedIn (personal profile).
 - **Deleting published posts.** Delete a published post from the calendar (or `DELETE /api/v1/posts/{id}`) to take it down on every account it went out to. The post stays in SMM marked deleted.
 - **Comment automations.** Send a DM, and optionally a public reply, when a comment on a Facebook or Instagram post matches a keyword.
-- **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts, including creating sets and assigning accounts to them. Team owners and admins create tokens under Settings, API tokens.
+- **REST API.** Token-authenticated `/api/v1` for social sets, accounts, and posts, including creating sets and assigning accounts to them. Team owners and admins create tokens under Settings, API tokens. A token limited to the Default set covers every connected account, including ones connected later.
 
 ## Stack
 

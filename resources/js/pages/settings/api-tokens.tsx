@@ -43,7 +43,7 @@ type Token = {
 
 type Props = {
     tokens: Token[];
-    socialSets: { id: number; name: string }[];
+    socialSets: { id: number; name: string; is_default: boolean }[];
     newApiToken?: string | null;
 };
 
@@ -135,6 +135,8 @@ export default function ApiTokens({ tokens, socialSets, newApiToken }: Props) {
                                                     value={String(set.id)}
                                                 >
                                                     {set.name}
+                                                    {set.is_default &&
+                                                        ' (all accounts)'}
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>

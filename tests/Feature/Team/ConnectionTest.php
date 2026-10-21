@@ -54,16 +54,23 @@ test('managers toggle the sets an account is in, within their own team', functio
     $this->actingAs($admin)->put(route('connections.update', $account), ['social_set_ids' => [$this->default->id, $clients->id]])->assertRedirect(route('connections.index'));
     expect($account->socialSets()->pluck('social_sets.id')->sort()->values()->all())->toBe([$this->default->id, $clients->id]);
 
+    // The Default set is kept even when left out.
     $this->actingAs($admin)->put(route('connections.update', $account), ['social_set_ids' => [$clients->id]]);
-    expect($account->socialSets()->pluck('social_sets.id')->all())->toBe([$clients->id]);
+    expect($account->socialSets()->pluck('social_sets.id')->sort()->values()->all())->toBe([$this->default->id, $clients->id]);
 
     $this->actingAs($admin)->put(route('connections.update', $account), ['social_set_ids' => [$foreign->id]])->assertSessionHasErrors('social_set_ids.0');
     $this->actingAs(User::factory()->create())->put(route('connections.update', $account), ['social_set_ids' => []])->assertNotFound();
 });
 
+test('a new account joins the Default set on its own', function () {
+    $account = SocialAccount::factory()->for($this->team)->create();
+
+    expect($account->socialSets()->pluck('social_sets.id')->all())->toBe([$this->default->id]);
+});
+
 test('disconnecting an account detaches it from its sets', function () {
     $account = SocialAccount::factory()->for($this->team)->create();
-    $account->socialSets()->attach($this->default);
+    $account->socialSets()->syncWithoutDetaching($this->default);
 
     $this->actingAs($this->owner)->delete(route('connections.destroy', $account))->assertRedirect(route('connections.index'));
 

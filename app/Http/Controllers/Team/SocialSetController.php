@@ -23,7 +23,7 @@ class SocialSetController extends Controller
         $team = $user->currentTeam();
 
         return Inertia::render('team/social-sets', [
-            'socialSets' => $team->socialSets()->withCount('posts')->orderBy('name')->get(['id', 'name']),
+            'socialSets' => $team->socialSets()->withCount('posts')->orderBy('name')->get(['id', 'name', 'is_default']),
             'deletedSocialSets' => $team->socialSets()->onlyTrashed()->withCount('posts')->latest('deleted_at')->get()
                 ->map(fn ($set) => [
                     'id' => $set->id,
@@ -60,7 +60,7 @@ class SocialSetController extends Controller
     }
 
     /**
-     * Move a set and its posts to the 30-day bin, and revoke the tokens limited to it. A team keeps at least one set.
+     * Move a set and its posts to the 30-day bin, and revoke the tokens limited to it. The Default set stays.
      */
     public function destroy(Request $request, int $socialSet): RedirectResponse
     {
@@ -69,8 +69,8 @@ class SocialSetController extends Controller
 
         $set = $team->socialSets()->findOrFail($socialSet);
 
-        if ($team->socialSets()->count() === 1) {
-            throw ValidationException::withMessages(['social_set' => __('A team needs at least one social set.')]);
+        if ($set->is_default) {
+            throw ValidationException::withMessages(['social_set' => __('The Default set cannot be deleted.')]);
         }
 
         DB::transaction(function () use ($team, $set) {

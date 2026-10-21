@@ -42,12 +42,18 @@ test('managers can create, rename and delete sets, members cannot', function () 
     $this->assertSoftDeleted($set);
 });
 
-test('the last set cannot be deleted', function () {
+test('the Default set cannot be deleted, even when others exist', function () {
+    $this->team->socialSets()->create(['name' => 'Clients']);
+    expect($this->default->is_default)->toBeTrue();
+
     $this->actingAs($this->owner)
         ->delete(route('social-sets.destroy', $this->default))
         ->assertSessionHasErrors('social_set');
 
     $this->assertModelExists($this->default);
+    $this->actingAs($this->owner)
+        ->get(route('social-sets.index'))
+        ->assertInertia(fn ($page) => $page->where('socialSets.0.is_default', false)->where('socialSets.1.is_default', true));
 });
 
 test('another teams set 404s', function () {

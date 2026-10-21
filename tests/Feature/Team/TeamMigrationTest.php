@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 uses(DatabaseMigrations::class);
 
 test('the migration moves existing users and posts into personal teams', function () {
-    $this->artisan('migrate:rollback', ['--step' => 6])->assertSuccessful();
+    $this->artisan('migrate:rollback', ['--step' => 7])->assertSuccessful();
 
     $userId = DB::table('users')->insertGetId([
         'name' => 'Harun', 'username' => 'harun', 'email' => 'harun@example.com', 'password' => 'x',

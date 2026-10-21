@@ -56,7 +56,7 @@ type Candidate = {
 
 type Props = {
     accounts: Account[];
-    socialSets: { id: number; name: string }[];
+    socialSets: { id: number; name: string; is_default: boolean }[];
     canManage: boolean;
     metaConfigured: boolean;
     threadsConfigured: boolean;
@@ -517,7 +517,7 @@ function SetPicker({
                             open &&
                             e.preventDefault()
                         }
-                        aria-label={`Social sets for ${account.name}: ${
+                        aria-label={`${account.name} shares on: ${
                             inSets.map((set) => set.name).join(', ') || 'none'
                         }`}
                         className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -538,18 +538,26 @@ function SetPicker({
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuLabel>Social sets</DropdownMenuLabel>
+                    <DropdownMenuLabel>Shares on</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {socialSets.map((set) => (
                         <DropdownMenuCheckboxItem
                             key={set.id}
-                            checked={account.social_set_ids.includes(set.id)}
-                            disabled={!canManage}
+                            checked={
+                                set.is_default ||
+                                account.social_set_ids.includes(set.id)
+                            }
+                            disabled={!canManage || set.is_default}
                             onCheckedChange={(on) => onToggle(set.id, on)}
                             // Keep the menu open so several sets can be toggled in a row.
                             onSelect={(e) => e.preventDefault()}
                         >
                             {set.name}
+                            {set.is_default && (
+                                <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                                    Always included
+                                </span>
+                            )}
                         </DropdownMenuCheckboxItem>
                     ))}
                 </DropdownMenuContent>

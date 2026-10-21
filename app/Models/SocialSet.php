@@ -16,11 +16,12 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $team_id
  * @property string $name
+ * @property bool $is_default
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  */
-#[Fillable(['name'])]
+#[Fillable(['name', 'is_default'])]
 class SocialSet extends Model
 {
     /** @use HasFactory<SocialSetFactory> */
@@ -28,6 +29,11 @@ class SocialSet extends Model
 
     /** Days a deleted set (and its posts) can still be restored before it is purged. */
     public const RESTORE_DAYS = 30;
+
+    protected function casts(): array
+    {
+        return ['is_default' => 'boolean'];
+    }
 
     /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo

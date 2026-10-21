@@ -16,7 +16,7 @@ beforeEach(function () {
 
     $set = User::factory()->create()->currentTeam()->socialSets()->sole();
     $account = SocialAccount::factory()->for($set->team)->create(['provider' => 'threads', 'external_id' => 'u1', 'access_token' => 'tt']);
-    $set->socialAccounts()->attach($account);
+    $set->socialAccounts()->syncWithoutDetaching($account);
     $this->set = $set;
 });
 
