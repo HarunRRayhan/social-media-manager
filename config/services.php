@@ -37,6 +37,12 @@ return [
         'client_secret' => env('LINKEDIN_CLIENT_SECRET'),
     ],
 
+    // An X developer app with OAuth 2.0 user authentication ("Read and write"); callback {APP_URL}/connect/x/callback.
+    'x' => [
+        'client_id' => env('X_CLIENT_ID'),
+        'client_secret' => env('X_CLIENT_SECRET'),
+    ],
+
     // A secret sign-in link for app store reviewers, /review-login/{token}, into a demo account. Unset = off.
     'review' => [
         'token' => env('REVIEW_LOGIN_TOKEN'),

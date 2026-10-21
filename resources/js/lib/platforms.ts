@@ -2,6 +2,7 @@ import BlueskyConnectionController from '@/actions/App/Http/Controllers/Team/Blu
 import LinkedInConnectionController from '@/actions/App/Http/Controllers/Team/LinkedInConnectionController';
 import MetaConnectionController from '@/actions/App/Http/Controllers/Team/MetaConnectionController';
 import ThreadsConnectionController from '@/actions/App/Http/Controllers/Team/ThreadsConnectionController';
+import XConnectionController from '@/actions/App/Http/Controllers/Team/XConnectionController';
 
 export type PlatformKey =
     | 'facebook'
@@ -39,7 +40,7 @@ export const platforms: {
         label: 'Threads',
         connect: ThreadsConnectionController.redirect.url(),
     },
-    { key: 'x', label: 'X', connect: null },
+    { key: 'x', label: 'X', connect: XConnectionController.redirect.url() },
     {
         key: 'linkedin',
         label: 'LinkedIn',
