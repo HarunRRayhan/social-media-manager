@@ -20,6 +20,7 @@ import { index } from '@/routes/social-sets';
 type SocialSet = {
     id: number;
     name: string;
+    is_default: boolean;
     posts_count: number;
 };
 
@@ -38,8 +39,6 @@ export default function SocialSets({
     deletedSocialSets,
     canManage,
 }: Props) {
-    const isLast = socialSets.length === 1;
-
     return (
         <>
             <Head title="Social sets" />
@@ -181,10 +180,10 @@ export default function SocialSets({
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                disabled={isLast}
+                                                disabled={set.is_default}
                                                 title={
-                                                    isLast
-                                                        ? 'A team needs at least one social set'
+                                                    set.is_default
+                                                        ? 'The Default set cannot be deleted'
                                                         : undefined
                                                 }
                                                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"

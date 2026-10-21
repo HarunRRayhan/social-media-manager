@@ -18,7 +18,7 @@ beforeEach(function () {
 
     $set = User::factory()->create()->currentTeam()->socialSets()->sole();
     $account = SocialAccount::factory()->for($set->team)->create(['provider' => 'linkedin', 'external_id' => LI_PERSON, 'access_token' => 'lt']);
-    $set->socialAccounts()->attach($account);
+    $set->socialAccounts()->syncWithoutDetaching($account);
     $this->set = $set;
 });
 

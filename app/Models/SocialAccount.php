@@ -34,6 +34,12 @@ class SocialAccount extends Model
     /** @use HasFactory<SocialAccountFactory> */
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        // Every account always posts for the team's Default set.
+        static::created(fn (SocialAccount $account) => $account->socialSets()->syncWithoutDetaching($account->defaultSocialSetIds()));
+    }
+
     protected function casts(): array
     {
         return [
@@ -56,13 +62,19 @@ class SocialAccount extends Model
     }
 
     /**
-     * Replace the sets this account posts for. Links to deleted sets stay, so restoring a set brings its accounts back.
+     * Replace the sets this account posts for. The Default set always stays, and links to deleted sets stay, so restoring a set brings its accounts back.
      *
      * @param  array<int, int>  $ids
      */
     public function syncSocialSets(array $ids): void
     {
-        $this->socialSets()->sync([...$ids, ...$this->socialSets()->onlyTrashed()->pluck('social_sets.id')]);
+        $this->socialSets()->sync([...$ids, ...$this->defaultSocialSetIds(), ...$this->socialSets()->onlyTrashed()->pluck('social_sets.id')]);
+    }
+
+    /** @return array<int, int> */
+    private function defaultSocialSetIds(): array
+    {
+        return $this->team->socialSets()->where('is_default', true)->pluck('social_sets.id')->all();
     }
 
     /** @return BelongsToMany<CommentAutomation, $this> */

@@ -30,7 +30,7 @@ class ConnectionController extends Controller
                     // A token that expires within a week (or already has) and was not renewed needs a fresh sign-in.
                     'reconnect' => $account->token_expires_at?->lte(now()->addDays(7)) ?? false,
                 ]),
-            'socialSets' => $team->socialSets()->orderBy('name')->get(['id', 'name']),
+            'socialSets' => $team->socialSets()->orderBy('name')->get(['id', 'name', 'is_default']),
             'canManage' => $canManage,
             'metaConfigured' => filled(config('services.meta.app_id')),
             'threadsConfigured' => filled(config('services.threads.app_id')),

@@ -21,6 +21,7 @@ class SocialSetResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'is_default' => $this->is_default,
         ];
     }
 }

@@ -46,7 +46,7 @@ class Team extends Model implements AuthenticatableContract
         return DB::transaction(function () use ($user, $name) {
             $team = self::create(['name' => $name]);
             $team->users()->attach($user, ['role' => 'owner']);
-            $team->socialSets()->create(['name' => 'Default']);
+            $team->socialSets()->create(['name' => 'Default', 'is_default' => true]);
             $user->forceFill(['current_team_id' => $team->id])->save();
 
             return $team;
