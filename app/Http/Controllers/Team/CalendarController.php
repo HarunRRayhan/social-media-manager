@@ -40,7 +40,7 @@ class CalendarController extends Controller
                 $month->copy()->subDay()->toDateTimeString(),
                 $month->copy()->addMonth()->addDay()->toDateTimeString(),
             ])
-            ->with('socialSet:id,name')
+            ->with('socialSet:id,name', 'lists:id,name')
             ->orderByRaw($day)
             ->get()
             ->map(fn (Post $post) => [
@@ -50,6 +50,7 @@ class CalendarController extends Controller
                 'preview' => Str::limit((string) $post->body, 60),
                 'at' => ($post->scheduled_at ?? $post->published_at ?? $post->created_at)->toIso8601String(),
                 'social_set' => $post->socialSet->name,
+                'lists' => $post->lists->map(fn ($list) => ['id' => $list->id, 'name' => $list->name, 'position' => $list->pivot->position]),
             ]);
 
         return Inertia::render('team/calendar', [
@@ -57,6 +58,7 @@ class CalendarController extends Controller
             'set' => isset($data['set']) ? (int) $data['set'] : null,
             'posts' => $posts,
             'socialSets' => $team->socialSets()->orderBy('name')->get(['id', 'name']),
+            'lists' => $team->postLists()->orderBy('name')->get(['id', 'name']),
             'canManage' => $request->user()->can('manage', $team),
         ]);
     }

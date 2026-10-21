@@ -3,6 +3,7 @@ import {
     CalendarDays,
     Layers,
     LayoutGrid,
+    ListVideo,
     Plug,
     Settings,
     Users,
@@ -25,6 +26,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { index as automations } from '@/routes/automations';
 import { index as calendar } from '@/routes/calendar';
 import { index as connections } from '@/routes/connections';
+import { index as lists } from '@/routes/lists';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import { index as socialSets } from '@/routes/social-sets';
@@ -37,6 +39,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Calendar', href: calendar(), icon: CalendarDays },
     { title: 'Connections', href: connections(), icon: Plug },
     { title: 'Social sets', href: socialSets(), icon: Layers },
+    { title: 'Lists', href: lists(), icon: ListVideo },
 ];
 
 export function AppSidebar() {

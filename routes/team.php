@@ -9,6 +9,7 @@ use App\Http\Controllers\Team\CurrentTeamController;
 use App\Http\Controllers\Team\LinkedInConnectionController;
 use App\Http\Controllers\Team\MetaConnectionController;
 use App\Http\Controllers\Team\PostController;
+use App\Http\Controllers\Team\PostListController;
 use App\Http\Controllers\Team\SocialSetController;
 use App\Http\Controllers\Team\TeamController;
 use App\Http\Controllers\Team\TeamInvitationController;
@@ -77,6 +78,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('posts/{post}', [PostController::class, 'destroy'])
         ->whereNumber('post')
         ->name('posts.destroy');
+    Route::put('posts/{post}/list', [PostController::class, 'updateList'])
+        ->whereNumber('post')
+        ->name('posts.list.update');
+
+    Route::get('lists', [PostListController::class, 'index'])->name('lists.index');
+    Route::post('lists', [PostListController::class, 'store'])->name('lists.store');
+    Route::get('lists/{list}', [PostListController::class, 'show'])->whereNumber('list')->name('lists.show');
+    Route::patch('lists/{list}', [PostListController::class, 'update'])->whereNumber('list')->name('lists.update');
+    Route::delete('lists/{list}', [PostListController::class, 'destroy'])->whereNumber('list')->name('lists.destroy');
+    Route::put('lists/{list}/order', [PostListController::class, 'reorder'])->whereNumber('list')->name('lists.reorder');
+    Route::delete('lists/{list}/posts/{post}', [PostListController::class, 'removePost'])
+        ->whereNumber('list')
+        ->whereNumber('post')
+        ->name('lists.posts.destroy');
 
     Route::get('connections', [ConnectionController::class, 'index'])->name('connections.index');
     Route::put('connections/{account}', [ConnectionController::class, 'update'])

@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\TakeDownPost;
+use App\Actions\DeletePost;
+use App\Actions\SavePost;
 use App\Concerns\TokenScope;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\IndexPostRequest;
@@ -20,13 +21,19 @@ class PostController extends Controller
     use TokenScope;
 
     /**
-     * List the token's posts (the team's, or one social set's), newest first, optionally filtered by status.
+     * List the token's posts (the team's, or one social set's), newest first, optionally filtered by status, platform,
+     * social set, and the date range (`from`/`to`) they go out in.
      */
     public function index(IndexPostRequest $request): AnonymousResourceCollection
     {
         $posts = $this->visiblePosts($request)
             ->when($request->validated('status'), fn ($query, $status) => $query->where('status', $status))
-            ->with('targets.socialAccount')
+            ->when($request->validated('platform'), fn ($query, $platform) => $query->where('platform', $platform))
+            ->when($request->validated('social_set_id'), fn ($query, $set) => $query->where('social_set_id', $set))
+            // A post sits on the day it goes out: its schedule, else when it published, else when it was written.
+            ->when($request->validated('from'), fn ($query, $from) => $query->whereRaw('COALESCE(scheduled_at, published_at, created_at) >= ?', [$from]))
+            ->when($request->validated('to'), fn ($query, $to) => $query->whereRaw('COALESCE(scheduled_at, published_at, created_at) <= ?', [$to]))
+            ->with('targets.socialAccount', 'lists')
             ->latest('id')
             ->paginate();
 
@@ -34,25 +41,14 @@ class PostController extends Controller
     }
 
     /**
-     * Create a post. Without scheduled_at it is saved as a draft; with it, it is scheduled.
+     * Create a post. Without scheduled_at it is saved as a draft; with it, it is scheduled. An optional `list_id`
+     * (+ 1-based `position`, default: appended) puts it into a list.
      *
      * A whole-team token must name the social_set_id; a social-set token posts to its own set.
      */
     public function store(StorePostRequest $request): JsonResponse
     {
-        $tokenSet = $this->tokenSocialSet($request);
-        $setId = (int) ($request->validated('social_set_id') ?? $tokenSet?->id);
-
-        if ($tokenSet && $setId !== $tokenSet->id) {
-            return response()->json(['message' => 'This token can only post to its own social set.'], 403);
-        }
-
-        $post = Post::create([
-            ...$request->validated(),
-            'team_id' => $this->team($request)->id,
-            'social_set_id' => $setId,
-            'status' => $request->filled('scheduled_at') ? 'scheduled' : 'draft',
-        ]);
+        $post = SavePost::create($this->team($request), $this->tokenSocialSet($request), $request->validated());
 
         return PostResource::make($post)->response()->setStatusCode(201);
     }
@@ -66,7 +62,8 @@ class PostController extends Controller
     }
 
     /**
-     * Update a draft or scheduled post. Its status is recomputed from scheduled_at.
+     * Update a draft or scheduled post. Its status is recomputed from scheduled_at. `list_id` (+ `position`) adds
+     * it to a list or moves it there.
      */
     public function update(UpdatePostRequest $request, int $post): PostResource|JsonResponse
     {
@@ -76,11 +73,7 @@ class PostController extends Controller
             return response()->json(['message' => 'Only draft or scheduled posts can be edited.'], 409);
         }
 
-        $model->fill($request->validated());
-        $model->status = $model->scheduled_at ? 'scheduled' : 'draft';
-        $model->save();
-
-        return PostResource::make($model);
+        return PostResource::make(SavePost::update($model, $request->validated()));
     }
 
     /**
@@ -89,25 +82,11 @@ class PostController extends Controller
      * answer is 422 with what to do in `message`: reconnect the account, or delete it in the platform's app.
      * Not 502: Cloudflare replaces a 502 body with its own page, so the message would never arrive.
      */
-    public function destroy(Request $request, int $post): PostResource|Response|JsonResponse
+    public function destroy(Request $request, int $post): PostResource|Response
     {
-        $model = $this->ownedPost($request, $post);
+        $takenDown = DeletePost::run($this->ownedPost($request, $post));
 
-        if ($model->status === 'published') {
-            $errors = TakeDownPost::run($model);
-
-            return $errors === []
-                ? PostResource::make($model->load('targets.socialAccount'))
-                : response()->json(['message' => implode(' ', $errors)], 422);
-        }
-
-        if (! $model->isEditable()) {
-            return response()->json(['message' => 'Only draft, scheduled or published posts can be deleted.'], 409);
-        }
-
-        $model->delete();
-
-        return response()->noContent();
+        return $takenDown ? PostResource::make($takenDown) : response()->noContent();
     }
 
     /**

@@ -30,6 +30,8 @@ class PostResource extends JsonResource
             'error' => $this->error,
             /** One entry per connected account the post went out to; empty until it is published. */
             'targets' => PostTargetResource::collection($this->targets),
+            /** Every list the post is in, with its 1-based position ("Part N") there. */
+            'lists' => $this->lists->map(fn ($list) => ['id' => $list->id, 'name' => $list->name, 'position' => $list->pivot->position]),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
         ];

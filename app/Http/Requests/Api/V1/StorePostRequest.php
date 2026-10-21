@@ -3,12 +3,15 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\Platform;
+use App\Http\Requests\Api\V1\Concerns\ListRules;
 use App\Models\Team;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StorePostRequest extends FormRequest
 {
+    use ListRules;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -31,6 +34,7 @@ class StorePostRequest extends FormRequest
             'media' => ['nullable', 'array'],
             'media.*' => ['url:http,https'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
+            ...$this->listRules($team),
         ];
     }
 }

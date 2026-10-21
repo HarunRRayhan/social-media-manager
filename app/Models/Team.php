@@ -115,6 +115,23 @@ class Team extends Model implements AuthenticatableContract
         return $this->hasMany(Post::class);
     }
 
+    /** @return HasMany<PostList, $this> */
+    public function postLists(): HasMany
+    {
+        return $this->hasMany(PostList::class);
+    }
+
+    /**
+     * The set the current API token is limited to, or null for a whole-team token.
+     */
+    public function tokenSocialSet(): ?SocialSet
+    {
+        $ability = collect($this->currentAccessToken()->abilities)
+            ->first(fn (string $ability) => Str::startsWith($ability, 'social-set:'));
+
+        return $ability ? $this->socialSets()->findOrFail((int) Str::after($ability, 'social-set:')) : null;
+    }
+
     /** @return HasMany<TeamInvitation, $this> */
     public function invitations(): HasMany
     {

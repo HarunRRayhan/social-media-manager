@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListVideo, Trash2 } from 'lucide-react';
 import PostController from '@/actions/App/Http/Controllers/Team/PostController';
 import Heading from '@/components/heading';
 import PlatformIcon from '@/components/platform-icon';
@@ -37,13 +37,17 @@ type CalendarPost = {
     preview: string;
     at: string;
     social_set: string;
+    lists: { id: number; name: string; position: number }[];
 };
+
+type ListOption = { id: number; name: string };
 
 type Props = {
     month: string;
     set: number | null;
     posts: CalendarPost[];
     socialSets: { id: number; name: string }[];
+    lists: ListOption[];
     canManage: boolean;
 };
 
@@ -74,7 +78,7 @@ function DeletePost({ post }: { post: CalendarPost }) {
             <DialogTrigger asChild>
                 <button
                     type="button"
-                    className="ml-auto shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
+                    className="shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
                 >
                     <Trash2 className="size-3" />
                     <span className="sr-only">Delete post</span>
@@ -110,11 +114,85 @@ function DeletePost({ post }: { post: CalendarPost }) {
     );
 }
 
+// Put the post into one list (its part number is its place at the end), or take it out of its list.
+function PostListDialog({
+    post,
+    lists,
+}: {
+    post: CalendarPost;
+    lists: ListOption[];
+}) {
+    const current = post.lists[0];
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <button
+                    type="button"
+                    className="shrink-0 rounded p-0.5 hover:bg-foreground/10"
+                    title={
+                        current
+                            ? `${current.name}, part ${current.position}`
+                            : 'Add to a list'
+                    }
+                >
+                    <ListVideo className="size-3" />
+                    <span className="sr-only">List</span>
+                </button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogTitle>List</DialogTitle>
+                <DialogDescription>
+                    {current
+                        ? `This post is part ${current.position} of "${current.name}".`
+                        : 'Pick a list to add this post to. It is appended as the last part.'}
+                </DialogDescription>
+                <Select
+                    value={current ? String(current.id) : 'none'}
+                    onValueChange={(value) =>
+                        router.put(
+                            PostController.updateList.url(post.id),
+                            {
+                                list_id:
+                                    value === 'none' ? null : Number(value),
+                            },
+                            { preserveScroll: true },
+                        )
+                    }
+                >
+                    <SelectTrigger aria-label="List">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">No list</SelectItem>
+                        {lists.map((list) => (
+                            <SelectItem key={list.id} value={String(list.id)}>
+                                {list.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {current && (
+                    <p className="text-sm text-muted-foreground">
+                        Part {current.position}
+                    </p>
+                )}
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="secondary">Done</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function Calendar({
     month,
     set,
     posts,
     socialSets,
+    lists,
     canManage,
 }: Props) {
     const [year, monthNumber] = month.split('-').map(Number);
@@ -295,12 +373,27 @@ export default function Calendar({
                                                     },
                                                 )}
                                             </span>
-                                            <span className="truncate">
+                                            <span className="mr-auto truncate">
                                                 {post.preview}
                                             </span>
                                             <span className="sr-only">
                                                 {post.status}
                                             </span>
+                                            {post.lists[0] && (
+                                                <span
+                                                    className="shrink-0 rounded bg-foreground/10 px-1 text-[10px] tabular-nums"
+                                                    title={post.lists[0].name}
+                                                >
+                                                    Part{' '}
+                                                    {post.lists[0].position}
+                                                </span>
+                                            )}
+                                            {canManage && (
+                                                <PostListDialog
+                                                    post={post}
+                                                    lists={lists}
+                                                />
+                                            )}
                                             {canManage &&
                                                 post.status === 'published' && (
                                                     <DeletePost post={post} />
