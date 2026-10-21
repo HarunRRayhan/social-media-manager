@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Every team gets one Default set that holds every connected account: the oldest live set named "Default", or else its oldest live set.
+     * Every team gets one Default set that holds every connected account: the oldest live set named "Default", else its oldest live set, else a new one.
      */
     public function up(): void
     {
@@ -18,11 +18,9 @@ return new class extends Migration
 
         foreach (DB::table('teams')->pluck('id') as $teamId) {
             $sets = DB::table('social_sets')->where('team_id', $teamId)->whereNull('deleted_at')->orderBy('id');
-            $setId = $sets->clone()->where('name', 'Default')->value('id') ?? $sets->value('id');
-
-            if ($setId === null) {
-                continue;
-            }
+            $setId = $sets->clone()->where('name', 'Default')->value('id')
+                ?? $sets->value('id')
+                ?? DB::table('social_sets')->insertGetId(['team_id' => $teamId, 'name' => 'Default', 'created_at' => now(), 'updated_at' => now()]);
 
             DB::table('social_sets')->where('id', $setId)->update(['is_default' => true]);
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\SocialAccount;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ test('the migration marks each team\'s Default set and puts every account in it'
     $accounts = SocialAccount::factory()->count(2)->for($named)->create();
     $other = SocialAccount::factory()->for($unnamed)->create();
     $other->socialSets()->sync([$unnamedOther->id]);
+    $empty = Team::factory()->create();
+    $orphan = SocialAccount::factory()->for($empty)->create();
 
     $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
     DB::table('social_account_social_set')->where('social_account_id', $accounts[0]->id)->delete();
@@ -28,5 +31,6 @@ test('the migration marks each team\'s Default set and puts every account in it'
         ->and($unnamed->socialSets()->where('is_default', true)->sole()->name)->toBe('Main')
         ->and($accounts[0]->socialSets()->pluck('name')->all())->toBe(['Default'])
         ->and($accounts[1]->socialSets()->pluck('name')->all())->toBe(['Default'])
-        ->and($other->socialSets()->orderBy('name')->pluck('name')->all())->toBe(['Clients', 'Main']);
+        ->and($other->socialSets()->orderBy('name')->pluck('name')->all())->toBe(['Clients', 'Main'])
+        ->and($orphan->socialSets()->where('is_default', true)->pluck('name')->all())->toBe(['Default']);
 });
