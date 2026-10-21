@@ -261,7 +261,7 @@ class MetaConnectionController extends Controller
     /**
      * The team's connected Facebook and Instagram external ids, keyed by provider.
      *
-     * @return Collection<string, Collection<int, string>>
+     * @return Collection<array-key, Collection<array-key, mixed>>
      */
     private static function connectedIds(Team $team): Collection
     {
