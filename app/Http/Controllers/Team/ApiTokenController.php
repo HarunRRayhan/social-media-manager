@@ -20,7 +20,7 @@ class ApiTokenController extends Controller
         $team = $request->user()->currentTeam();
         Gate::authorize('manage', $team);
 
-        $sets = $team->socialSets()->orderBy('name')->get(['id', 'name']);
+        $sets = $team->socialSets()->orderBy('name')->get(['id', 'name', 'is_default']);
 
         return Inertia::render('settings/api-tokens', [
             'newApiToken' => $request->session()->get('newApiToken'),

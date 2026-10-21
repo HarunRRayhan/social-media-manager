@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 // Not RefreshDatabase: SQLite rebuilds tables for these schema changes, which only works outside a transaction.
 uses(DatabaseMigrations::class);
 
-test('the migration marks each team\'s Default set and puts every account in it', function () {
+test('the migration marks or creates each team\'s Default set and puts every account in it', function () {
     $named = User::factory()->create()->currentTeam();
     $namedOther = $named->socialSets()->create(['name' => 'Clients']);
     $unnamed = User::factory()->create()->currentTeam();
@@ -28,9 +28,10 @@ test('the migration marks each team\'s Default set and puts every account in it'
 
     expect($named->socialSets()->where('is_default', true)->sole()->name)->toBe('Default')
         ->and($namedOther->fresh()->is_default)->toBeFalse()
-        ->and($unnamed->socialSets()->where('is_default', true)->sole()->name)->toBe('Main')
+        ->and($unnamed->socialSets()->where('is_default', true)->sole()->name)->toBe('Default')
+        ->and($unnamed->socialSets()->count())->toBe(3)
         ->and($accounts[0]->socialSets()->pluck('name')->all())->toBe(['Default'])
         ->and($accounts[1]->socialSets()->pluck('name')->all())->toBe(['Default'])
-        ->and($other->socialSets()->orderBy('name')->pluck('name')->all())->toBe(['Clients', 'Main'])
+        ->and($other->socialSets()->orderBy('name')->pluck('name')->all())->toBe(['Clients', 'Default'])
         ->and($orphan->socialSets()->where('is_default', true)->pluck('name')->all())->toBe(['Default']);
 });
