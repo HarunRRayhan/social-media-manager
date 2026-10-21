@@ -16,7 +16,7 @@ class GetList extends ApiTool
     protected function run(Request $request): Response
     {
         $data = $request->validate(['id' => ['required', 'integer']]);
-        $list = $this->visibleLists($request)->findOrFail((int) $data['id'])->load('posts.targets.socialAccount', 'posts.lists');
+        $list = $this->loadVisibleListPosts($request, $this->visibleLists($request)->findOrFail((int) $data['id']));
 
         return $this->json(PostListResource::make($list));
     }

@@ -31,7 +31,7 @@ class PostController extends Controller
     }
 
     /**
-     * Put a post into one list (appended), or take it out of every list with a null list_id.
+     * Append a post to a list it is not in yet; its other lists are untouched.
      */
     public function updateList(Request $request, int $post): RedirectResponse
     {
@@ -40,14 +40,10 @@ class PostController extends Controller
 
         $model = $team->posts()->findOrFail($post);
         $data = $request->validate([
-            'list_id' => ['nullable', 'integer', Rule::exists('post_lists', 'id')->where('team_id', $team->id)->whereNull('deleted_at')],
+            'list_id' => ['required', 'integer', Rule::exists('post_lists', 'id')->where('team_id', $team->id)->whereNull('deleted_at')],
         ]);
 
-        $model->lists->each(fn ($list) => $list->removePost($model));
-
-        if ($data['list_id']) {
-            $team->postLists()->findOrFail((int) $data['list_id'])->addPost($model);
-        }
+        $team->postLists()->findOrFail((int) $data['list_id'])->addPost($model);
 
         return back();
     }

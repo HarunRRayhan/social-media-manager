@@ -25,7 +25,7 @@ class PostListController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        return PostListResource::collection($this->visibleLists($request)->withCount('posts')->orderBy('id')->get());
+        return PostListResource::collection($this->visibleLists($request)->withCount(['posts' => $this->team($request)->visiblePostsScope()])->orderBy('id')->get());
     }
 
     /**
@@ -43,7 +43,7 @@ class PostListController extends Controller
 
         $list = $this->team($request)->postLists()->create($data);
 
-        return PostListResource::make($list->loadCount('posts'))->response()->setStatusCode(201);
+        return PostListResource::make($list->loadCount(['posts' => $this->team($request)->visiblePostsScope()]))->response()->setStatusCode(201);
     }
 
     /**
@@ -51,15 +51,25 @@ class PostListController extends Controller
      */
     public function show(Request $request, int $list): PostListResource
     {
-        return PostListResource::make($this->ownedList($request, $list)->load('posts.targets.socialAccount', 'posts.lists'));
+        return PostListResource::make($this->loadVisibleListPosts($request, $this->ownedList($request, $list)));
     }
 
+    /**
+     * Rename or describe a list, or move it to another set. A set token cannot move it out of its own set.
+     */
     public function update(UpdatePostListRequest $request, int $list): PostListResource
     {
-        $model = $this->ownedList($request, $list);
-        $model->update($request->validated());
+        $tokenSet = $this->tokenSocialSet($request);
+        $data = $request->validated();
 
-        return PostListResource::make($model->loadCount('posts'));
+        if ($tokenSet && array_key_exists('social_set_id', $data) && (int) $data['social_set_id'] !== $tokenSet->id) {
+            throw new AuthorizationException('This token can only keep lists in its own social set.');
+        }
+
+        $model = $this->ownedList($request, $list);
+        $model->update($data);
+
+        return PostListResource::make($model->loadCount(['posts' => $this->team($request)->visiblePostsScope()]));
     }
 
     /**

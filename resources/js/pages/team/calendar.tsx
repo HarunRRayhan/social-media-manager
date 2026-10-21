@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, ListVideo, Trash2 } from 'lucide-react';
 import PostController from '@/actions/App/Http/Controllers/Team/PostController';
+import PostListController from '@/actions/App/Http/Controllers/Team/PostListController';
 import Heading from '@/components/heading';
 import PlatformIcon from '@/components/platform-icon';
 import { Button } from '@/components/ui/button';
@@ -114,7 +115,7 @@ function DeletePost({ post }: { post: CalendarPost }) {
     );
 }
 
-// Put the post into one list (its part number is its place at the end), or take it out of its list.
+// Every list the post is in, with its part number, plus adding it to another list.
 function PostListDialog({
     post,
     lists,
@@ -122,7 +123,8 @@ function PostListDialog({
     post: CalendarPost;
     lists: ListOption[];
 }) {
-    const current = post.lists[0];
+    const inIds = new Set(post.lists.map((list) => list.id));
+    const available = lists.filter((list) => !inIds.has(list.id));
 
     return (
         <Dialog>
@@ -131,51 +133,82 @@ function PostListDialog({
                     type="button"
                     className="shrink-0 rounded p-0.5 hover:bg-foreground/10"
                     title={
-                        current
-                            ? `${current.name}, part ${current.position}`
+                        post.lists.length
+                            ? post.lists
+                                  .map(
+                                      (list) =>
+                                          `${list.name}, part ${list.position}`,
+                                  )
+                                  .join('; ')
                             : 'Add to a list'
                     }
                 >
                     <ListVideo className="size-3" />
-                    <span className="sr-only">List</span>
+                    <span className="sr-only">Lists</span>
                 </button>
             </DialogTrigger>
             <DialogContent>
-                <DialogTitle>List</DialogTitle>
+                <DialogTitle>Lists</DialogTitle>
                 <DialogDescription>
-                    {current
-                        ? `This post is part ${current.position} of "${current.name}".`
-                        : 'Pick a list to add this post to. It is appended as the last part.'}
+                    A post can be in several lists; its place in each is its
+                    part number. Adding appends it as the last part.
                 </DialogDescription>
-                <Select
-                    value={current ? String(current.id) : 'none'}
-                    onValueChange={(value) =>
-                        router.put(
-                            PostController.updateList.url(post.id),
-                            {
-                                list_id:
-                                    value === 'none' ? null : Number(value),
-                            },
-                            { preserveScroll: true },
-                        )
-                    }
-                >
-                    <SelectTrigger aria-label="List">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="none">No list</SelectItem>
-                        {lists.map((list) => (
-                            <SelectItem key={list.id} value={String(list.id)}>
-                                {list.name}
-                            </SelectItem>
+                {post.lists.length > 0 && (
+                    <ul className="divide-y rounded-md border text-sm">
+                        {post.lists.map((list) => (
+                            <li
+                                key={list.id}
+                                className="flex items-center justify-between gap-2 px-3 py-2"
+                            >
+                                <span className="truncate">{list.name}</span>
+                                <span className="shrink-0 text-muted-foreground tabular-nums">
+                                    Part {list.position}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() =>
+                                        router.delete(
+                                            PostListController.removePost.url({
+                                                list: list.id,
+                                                post: post.id,
+                                            }),
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    Remove
+                                </Button>
+                            </li>
                         ))}
-                    </SelectContent>
-                </Select>
-                {current && (
-                    <p className="text-sm text-muted-foreground">
-                        Part {current.position}
-                    </p>
+                    </ul>
+                )}
+                {available.length > 0 && (
+                    <Select
+                        value=""
+                        onValueChange={(value) =>
+                            router.put(
+                                PostController.updateList.url(post.id),
+                                { list_id: Number(value) },
+                                { preserveScroll: true },
+                            )
+                        }
+                    >
+                        <SelectTrigger aria-label="Add to list">
+                            <SelectValue placeholder="Add to a list" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {available.map((list) => (
+                                <SelectItem
+                                    key={list.id}
+                                    value={String(list.id)}
+                                >
+                                    {list.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 )}
                 <DialogFooter>
                     <DialogClose asChild>

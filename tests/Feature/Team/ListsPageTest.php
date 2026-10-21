@@ -47,7 +47,7 @@ test('an owner creates, reorders, removes from, renames and deletes a list', fun
     $this->actingAs($this->owner)->delete(route('lists.posts.destroy', [$list, $b]))->assertRedirect();
     expect($list->posts()->pluck('posts.id')->all())->toBe([$a->id]);
 
-    $this->actingAs($this->owner)->put(route('posts.list.update', $a), ['list_id' => null])->assertRedirect();
+    $this->actingAs($this->owner)->delete(route('lists.posts.destroy', [$list, $a]))->assertRedirect();
     expect($list->posts()->count())->toBe(0);
 
     $this->actingAs($this->owner)->patch(route('lists.update', $list), ['name' => 'Renamed'])->assertRedirect();

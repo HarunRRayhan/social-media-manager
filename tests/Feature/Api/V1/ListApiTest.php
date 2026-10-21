@@ -68,6 +68,10 @@ test('posts are added in order, inserted at a position, reordered and removed', 
     $this->getJson("/api/v1/lists/{$list->id}", $this->headers)
         ->assertJsonPath('data.posts.*.id', [$b->id, $a->id])
         ->assertJsonPath('data.posts.1.lists.0.position', 2);
+
+    // Deleting a post closes its gap too.
+    $this->deleteJson("/api/v1/posts/{$b->id}", [], $this->headers)->assertNoContent();
+    $this->getJson("/api/v1/lists/{$list->id}", $this->headers)->assertJsonPath('data.posts.0.lists.0.position', 1);
 });
 
 test('a post can be created or updated into a list', function () {
@@ -118,4 +122,38 @@ test('a set token sees team-wide lists and its own set lists only, and creates i
     $this->postJson("/api/v1/lists/{$teamWide->id}/posts", ['post_id' => $otherPost->id], $headers)->assertNotFound();
     $this->postJson('/api/v1/posts', ['platform' => 'x', 'list_id' => $other->id], $headers)->assertUnprocessable()->assertJsonValidationErrors(['list_id']);
     $this->postJson('/api/v1/posts', ['platform' => 'x', 'list_id' => $teamWide->id], $headers)->assertCreated()->assertJsonPath('data.lists.0.position', 1);
+});
+
+test('a set token sees only its own posts inside a list and only visible lists on a post', function () {
+    $headers = ['Authorization' => 'Bearer '.$this->setToken];
+    $teamWide = PostList::factory()->for($this->team)->create();
+    $otherList = PostList::factory()->for($this->team)->create(['social_set_id' => $this->otherSet->id]);
+    $mine = Post::factory()->for($this->set)->create();
+    $theirs = Post::factory()->for($this->otherSet)->create();
+    $teamWide->addPost($theirs);
+    $teamWide->addPost($mine);
+    $otherList->addPost($mine);
+
+    $this->getJson("/api/v1/lists/{$teamWide->id}", $headers)
+        ->assertOk()
+        ->assertJsonPath('data.posts.*.id', [$mine->id])
+        ->assertJsonPath('data.posts.0.lists.*.id', [$teamWide->id]);
+    $this->getJson('/api/v1/lists', $headers)->assertJsonPath('data.0.posts_count', 1);
+
+    $this->getJson("/api/v1/posts/{$mine->id}", $headers)->assertJsonPath('data.lists.*.id', [$teamWide->id]);
+    $this->getJson('/api/v1/posts', $headers)->assertJsonPath('data.0.lists.*.id', [$teamWide->id]);
+
+    $this->app['auth']->forgetGuards();
+    $this->getJson("/api/v1/lists/{$teamWide->id}", $this->headers)->assertJsonPath('data.posts.*.id', [$theirs->id, $mine->id]);
+    $this->getJson("/api/v1/posts/{$mine->id}", $this->headers)->assertJsonCount(2, 'data.lists');
+});
+
+test('a set token cannot move a list out of its own set', function () {
+    $headers = ['Authorization' => 'Bearer '.$this->setToken];
+    $own = PostList::factory()->for($this->team)->create(['social_set_id' => $this->set->id]);
+
+    $this->patchJson("/api/v1/lists/{$own->id}", ['social_set_id' => $this->otherSet->id], $headers)->assertForbidden();
+    $this->patchJson("/api/v1/lists/{$own->id}", ['social_set_id' => null], $headers)->assertForbidden();
+    $this->patchJson("/api/v1/lists/{$own->id}", ['name' => 'Ok', 'social_set_id' => $this->set->id], $headers)->assertOk()->assertJsonPath('data.name', 'Ok');
+    expect($own->fresh()->social_set_id)->toBe($this->set->id);
 });

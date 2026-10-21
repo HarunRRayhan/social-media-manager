@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\Post;
+use App\Models\PostList;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -34,6 +35,8 @@ class DeletePost
             throw new ConflictHttpException('Only draft, scheduled or published posts can be deleted.');
         }
 
+        // The FK cascade would drop the pivot rows without closing the gaps in each list's positions.
+        $post->lists->each(fn (PostList $list) => $list->removePost($post));
         $post->delete();
 
         return null;

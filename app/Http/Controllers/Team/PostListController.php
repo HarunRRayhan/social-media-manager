@@ -56,7 +56,7 @@ class PostListController extends Controller
                     'status' => $post->status,
                     'preview' => Str::limit((string) $post->body, 80),
                     'at' => ($post->scheduled_at ?? $post->published_at ?? $post->created_at)->toIso8601String(),
-                    'social_set' => $post->socialSet->name,
+                    'social_set' => $post->socialSet?->name,
                 ]),
             ],
             'canManage' => $user->can('manage', $team),

@@ -59,7 +59,20 @@ trait TokenScope
     {
         $set = $this->tokenSocialSet($request);
 
-        return $this->team($request)->postLists()->getQuery()
-            ->when($set, fn ($query) => $query->where(fn ($q) => $q->whereNull('social_set_id')->orWhere('social_set_id', $set->id)));
+        return $this->team($request)->postLists()->getQuery()->tap($this->team($request)->visibleListsScope());
+    }
+
+    /**
+     * A list with its posts in order, only the ones the token can see.
+     */
+    protected function loadVisibleListPosts(Request|McpRequest $request, PostList $list): PostList
+    {
+        $team = $this->team($request);
+
+        return $list->load([
+            'posts' => $team->visiblePostsScope(),
+            'posts.targets.socialAccount',
+            'posts.lists' => $team->visibleListsScope(),
+        ]);
     }
 }

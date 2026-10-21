@@ -69,6 +69,7 @@ class PostList extends Model
     public function addPost(Post $post, ?int $position = null): void
     {
         DB::transaction(function () use ($post, $position) {
+            $this->lock();
             $this->removePost($post);
             $count = $this->posts()->count();
             $position = max(1, min($position ?? $count + 1, $count + 1));
@@ -80,6 +81,7 @@ class PostList extends Model
     public function removePost(Post $post): void
     {
         DB::transaction(function () use ($post) {
+            $this->lock();
             $position = $this->posts()->newPivotStatement()->where('post_list_id', $this->id)->where('post_id', $post->id)->value('position');
 
             if ($position === null) {
@@ -104,8 +106,17 @@ class PostList extends Model
             throw ValidationException::withMessages(['post_ids' => 'post_ids must contain every post of the list exactly once.']);
         }
 
-        DB::transaction(fn () => collect($postIds)->values()->each(
-            fn (int $id, int $index) => $this->posts()->updateExistingPivot($id, ['position' => $index + 1]),
-        ));
+        DB::transaction(function () use ($postIds) {
+            $this->lock();
+            collect($postIds)->values()->each(
+                fn (int $id, int $index) => $this->posts()->updateExistingPivot($id, ['position' => $index + 1]),
+            );
+        });
+    }
+
+    /** Serializes position changes on this list; there is no unique index on (list, position). */
+    private function lock(): void
+    {
+        static::query()->whereKey($this->id)->lockForUpdate()->get();
     }
 }

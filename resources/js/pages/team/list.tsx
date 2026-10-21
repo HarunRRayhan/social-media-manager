@@ -27,7 +27,7 @@ type ListPost = {
     status: string;
     preview: string;
     at: string;
-    social_set: string;
+    social_set: string | null;
 };
 
 type Props = {

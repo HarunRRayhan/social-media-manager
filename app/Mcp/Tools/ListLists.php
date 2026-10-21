@@ -14,6 +14,6 @@ class ListLists extends ApiTool
 {
     protected function run(Request $request): Response
     {
-        return $this->json(PostListResource::collection($this->visibleLists($request)->withCount('posts')->orderBy('id')->get()));
+        return $this->json(PostListResource::collection($this->visibleLists($request)->withCount(['posts' => $this->team($request)->visiblePostsScope()])->orderBy('id')->get()));
     }
 }

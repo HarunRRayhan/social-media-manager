@@ -23,7 +23,7 @@ class CreateList extends ApiTool
             throw new AuthorizationException('This token can only create lists in its own social set.');
         }
 
-        return $this->json(PostListResource::make($this->team($request)->postLists()->create($data)->loadCount('posts')));
+        return $this->json(PostListResource::make($this->team($request)->postLists()->create($data)->loadCount(['posts' => $this->team($request)->visiblePostsScope()])));
     }
 
     /**

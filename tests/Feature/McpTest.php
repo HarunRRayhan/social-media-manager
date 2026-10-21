@@ -78,6 +78,12 @@ test('create_post validates with the api rules and a set token stays in its set'
     mcpAs($this->team, $setToken)->tool(CreatePost::class, ['platform' => 'x', 'social_set_id' => $other->id])
         ->assertHasErrors(['This token can only post to its own social set.']);
 
-    Post::factory()->for($other)->create();
+    $theirs = Post::factory()->for($other)->create();
     mcpAs($this->team, $setToken)->tool(ListPosts::class, [])->assertOk()->assertDontSee('"social_set_id":'.$other->id);
+
+    // get_list hides the other set's posts from a set token, like GET /api/v1/lists/{id}.
+    $list = PostList::factory()->for($this->team)->create();
+    $list->addPost($theirs);
+    mcpAs($this->team, $setToken)->tool(GetList::class, ['id' => $list->id])->assertOk()->assertDontSee('"id":'.$theirs->id.',');
+    mcpAs($this->team, $this->token)->tool(GetList::class, ['id' => $list->id])->assertOk()->assertSee('"id":'.$theirs->id.',');
 });
