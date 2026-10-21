@@ -7,6 +7,7 @@ use App\Models\Team;
 use App\Publishers\MetaGraph;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -99,6 +100,20 @@ class MetaConnectionController extends Controller
             return $this->back('error', __('No Facebook Pages were shared. Pick at least one Page when Facebook asks.'));
         }
 
+        // Reconnecting (for example to grant a new scope) refreshes already-connected accounts right away, like
+        // Threads does; the picker below only offers what is not connected yet.
+        $connected = self::connectedIds($team);
+        $refreshed = DB::transaction(fn () => array_sum(array_map(fn (array $page) => self::save(
+            $team,
+            $page,
+            $connected->get('facebook', collect())->contains((string) $page['id']),
+            $connected->get('instagram', collect())->contains((string) ($page['instagram_business_account']['id'] ?? '')),
+        ), $pages)));
+
+        if ($refreshed > 0) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => trans_choice('{1} Refreshed 1 connected account.|[2,*] Refreshed :count connected accounts.', $refreshed)]);
+        }
+
         // Tokens stay server-side; the picker only ever sees ids, names and pictures.
         if ($old = $request->session()->get('meta_pick.key')) {
             Cache::forget('meta-pick:'.$old);
@@ -124,8 +139,7 @@ class MetaConnectionController extends Controller
             return null;
         }
 
-        $connected = $team->socialAccounts()->get(['provider', 'external_id'])
-            ->groupBy('provider')->map->pluck('external_id');
+        $connected = self::connectedIds($team);
 
         return [
             'pages' => collect($pages)->map(fn (array $page) => [
@@ -183,39 +197,12 @@ class MetaConnectionController extends Controller
         $chosen = array_values(array_filter($pages, fn (array $page) => in_array((string) $page['id'], $facebook, true)
             || in_array((string) ($page['instagram_business_account']['id'] ?? ''), $instagram, true)));
 
-        $count = DB::transaction(function () use ($team, $chosen, $facebook, $instagram) {
-            $count = 0;
-
-            foreach ($chosen as $page) {
-                if (in_array((string) $page['id'], $facebook, true)) {
-                    // A Page token derived from a long-lived user token does not expire.
-                    $team->socialAccounts()->updateOrCreate(
-                        ['provider' => 'facebook', 'external_id' => (string) $page['id']],
-                        ['name' => $page['name'], 'avatar_url' => $page['picture']['data']['url'] ?? null, 'access_token' => $page['access_token'], 'token_expires_at' => null],
-                    );
-                    $count++;
-                }
-
-                $ig = $page['instagram_business_account'] ?? null;
-
-                if ($ig && in_array((string) $ig['id'], $instagram, true)) {
-                    $team->socialAccounts()->updateOrCreate(
-                        ['provider' => 'instagram', 'external_id' => (string) $ig['id']],
-                        [
-                            'name' => $ig['username'] ?? $page['name'],
-                            'username' => $ig['username'] ?? null,
-                            'avatar_url' => $ig['profile_picture_url'] ?? null,
-                            'access_token' => $page['access_token'],
-                            'token_expires_at' => null,
-                            'meta' => ['page_id' => (string) $page['id']],
-                        ],
-                    );
-                    $count++;
-                }
-            }
-
-            return $count;
-        });
+        $count = DB::transaction(fn () => array_sum(array_map(fn (array $page) => self::save(
+            $team,
+            $page,
+            in_array((string) $page['id'], $facebook, true),
+            in_array((string) ($page['instagram_business_account']['id'] ?? ''), $instagram, true),
+        ), $chosen)));
 
         $this->forget($request);
 
@@ -231,6 +218,55 @@ class MetaConnectionController extends Controller
         return $unsubscribed === []
             ? $this->back('success', $connected)
             : $this->back('warning', $connected.' '.__('Comment automations will not run on :pages until you connect again.', ['pages' => implode(', ', array_column($unsubscribed, 'name'))]));
+    }
+
+    /**
+     * Save a granted Page as a Facebook account and/or its Instagram account, returning how many were written.
+     *
+     * @param  array<string, mixed>  $page
+     */
+    private static function save(Team $team, array $page, bool $facebook, bool $instagram): int
+    {
+        $count = 0;
+
+        if ($facebook) {
+            // A Page token derived from a long-lived user token does not expire.
+            $team->socialAccounts()->updateOrCreate(
+                ['provider' => 'facebook', 'external_id' => (string) $page['id']],
+                ['name' => $page['name'], 'avatar_url' => $page['picture']['data']['url'] ?? null, 'access_token' => $page['access_token'], 'token_expires_at' => null],
+            );
+            $count++;
+        }
+
+        $ig = $page['instagram_business_account'] ?? null;
+
+        if ($ig && $instagram) {
+            $team->socialAccounts()->updateOrCreate(
+                ['provider' => 'instagram', 'external_id' => (string) $ig['id']],
+                [
+                    'name' => $ig['username'] ?? $page['name'],
+                    'username' => $ig['username'] ?? null,
+                    'avatar_url' => $ig['profile_picture_url'] ?? null,
+                    'access_token' => $page['access_token'],
+                    'token_expires_at' => null,
+                    'meta' => ['page_id' => (string) $page['id']],
+                ],
+            );
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * The team's connected Facebook and Instagram external ids, keyed by provider.
+     *
+     * @return Collection<string, Collection<int, string>>
+     */
+    private static function connectedIds(Team $team): Collection
+    {
+        return $team->socialAccounts()->whereIn('provider', ['facebook', 'instagram'])->get(['provider', 'external_id'])
+            ->groupBy('provider')->map->pluck('external_id');
     }
 
     /**

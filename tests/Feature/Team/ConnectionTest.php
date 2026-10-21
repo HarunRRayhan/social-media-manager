@@ -193,6 +193,30 @@ test('cancelling forgets the pending sign-in', function () {
     expect($this->team->socialAccounts()->count())->toBe(0);
 });
 
+test('reconnecting refreshes the tokens of already-connected accounts before the picker opens', function () {
+    $fb = SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111', 'name' => 'Old name', 'access_token' => 'stale']);
+    $ig = SocialAccount::factory()->for($this->team)->create(['provider' => 'instagram', 'external_id' => '222', 'access_token' => 'stale']);
+    $threads = SocialAccount::factory()->for($this->team)->create(['provider' => 'threads', 'external_id' => '111', 'access_token' => 'threads-token']);
+    fakeMetaLogin();
+
+    $this->actingAs($this->owner)
+        ->withSession(['meta_oauth' => ['state' => 'right', 'team_id' => $this->team->id]])
+        ->get(route('connect.meta.callback', ['state' => 'right', 'code' => 'abc']))
+        ->assertRedirect(route('connections.index'))
+        ->assertInertiaFlash('toast.message', 'Refreshed 2 connected accounts.');
+
+    // Only the connected ones are written; the rest wait for the picker, and closing it keeps the refresh.
+    expect($this->team->socialAccounts()->count())->toBe(3)
+        ->and($fb->fresh()->access_token)->toBe('page-token-1')
+        ->and($fb->fresh()->name)->toBe('Harun Page')
+        ->and($ig->fresh()->access_token)->toBe('page-token-1')
+        ->and($ig->fresh()->username)->toBe('harun')
+        ->and($threads->fresh()->access_token)->toBe('threads-token');
+
+    $this->actingAs($this->owner)->delete(route('connect.meta.cancel'))->assertRedirect(route('connections.index'));
+    expect($fb->fresh()->access_token)->toBe('page-token-1');
+});
+
 test('storing saves only the picked accounts and subscribes only their pages', function () {
     $existing = SocialAccount::factory()->for($this->team)->create(['provider' => 'facebook', 'external_id' => '111', 'name' => 'Old name']);
     signIn($this);
