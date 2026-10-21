@@ -15,6 +15,7 @@ use App\Http\Controllers\Team\TeamController;
 use App\Http\Controllers\Team\TeamInvitationController;
 use App\Http\Controllers\Team\TeamMemberController;
 use App\Http\Controllers\Team\ThreadsConnectionController;
+use App\Http\Controllers\Team\XConnectionController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +112,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('connections/linkedin/redirect', [LinkedInConnectionController::class, 'redirect'])->name('connect.linkedin.redirect');
     // Registered in the LinkedIn app as {APP_URL}/connect/linkedin/callback, so this path must not change.
     Route::get('connect/linkedin/callback', [LinkedInConnectionController::class, 'callback'])->name('connect.linkedin.callback');
+    Route::get('connections/x/redirect', [XConnectionController::class, 'redirect'])->name('connect.x.redirect');
+    // Registered in the X app as {APP_URL}/connect/x/callback, so this path must not change.
+    Route::get('connect/x/callback', [XConnectionController::class, 'callback'])->name('connect.x.callback');
     Route::post('connections/bluesky', [BlueskyConnectionController::class, 'store'])
         ->middleware('throttle:login')
         ->name('connect.bluesky.store');

@@ -12,3 +12,5 @@ Schedule::command('posts:publish-due')->everyFiveMinutes()->withoutOverlapping(1
 Schedule::command('social-sets:purge')->daily();
 Schedule::command('threads:refresh-tokens')->daily();
 Schedule::command('linkedin:refresh-tokens')->daily();
+// X access tokens last two hours, so these are renewed well inside that window.
+Schedule::command('x:refresh-tokens')->everyFifteenMinutes()->withoutOverlapping(10);

@@ -10,6 +10,7 @@ use App\Publishers\InstagramPublisher;
 use App\Publishers\LinkedInPublisher;
 use App\Publishers\Publisher;
 use App\Publishers\ThreadsPublisher;
+use App\Publishers\XPublisher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ class PublishPost implements ShouldQueue
         'threads' => ThreadsPublisher::class,
         'bluesky' => BlueskyPublisher::class,
         'linkedin' => LinkedInPublisher::class,
+        'x' => XPublisher::class,
     ];
 
     public function __construct(public int $postId) {}
