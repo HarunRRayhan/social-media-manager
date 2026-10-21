@@ -148,12 +148,19 @@ test('a set token sees only its own posts inside a list and only visible lists o
     $this->getJson("/api/v1/posts/{$mine->id}", $this->headers)->assertJsonCount(2, 'data.lists');
 });
 
-test('a set token cannot move a list out of its own set', function () {
+test('a set token cannot change which set a list belongs to', function () {
     $headers = ['Authorization' => 'Bearer '.$this->setToken];
     $own = PostList::factory()->for($this->team)->create(['social_set_id' => $this->set->id]);
+    $teamWide = PostList::factory()->for($this->team)->create();
 
     $this->patchJson("/api/v1/lists/{$own->id}", ['social_set_id' => $this->otherSet->id], $headers)->assertForbidden();
     $this->patchJson("/api/v1/lists/{$own->id}", ['social_set_id' => null], $headers)->assertForbidden();
+    $this->patchJson("/api/v1/lists/{$teamWide->id}", ['social_set_id' => $this->set->id], $headers)->assertForbidden();
     $this->patchJson("/api/v1/lists/{$own->id}", ['name' => 'Ok', 'social_set_id' => $this->set->id], $headers)->assertOk()->assertJsonPath('data.name', 'Ok');
-    expect($own->fresh()->social_set_id)->toBe($this->set->id);
+    $this->patchJson("/api/v1/lists/{$teamWide->id}", ['name' => 'Still shared', 'social_set_id' => null], $headers)->assertOk();
+    expect($own->fresh()->social_set_id)->toBe($this->set->id)->and($teamWide->fresh()->social_set_id)->toBeNull();
+
+    // A whole-team token moves lists freely.
+    $this->app['auth']->forgetGuards();
+    $this->patchJson("/api/v1/lists/{$teamWide->id}", ['social_set_id' => $this->otherSet->id], $this->headers)->assertOk()->assertJsonPath('data.social_set_id', $this->otherSet->id);
 });

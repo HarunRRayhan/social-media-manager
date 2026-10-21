@@ -55,18 +55,17 @@ class PostListController extends Controller
     }
 
     /**
-     * Rename or describe a list, or move it to another set. A set token cannot move it out of its own set.
+     * Rename or describe a list, or move it to another set. A set token cannot change which set a list belongs to.
      */
     public function update(UpdatePostListRequest $request, int $list): PostListResource
     {
-        $tokenSet = $this->tokenSocialSet($request);
+        $model = $this->ownedList($request, $list);
         $data = $request->validated();
 
-        if ($tokenSet && array_key_exists('social_set_id', $data) && (int) $data['social_set_id'] !== $tokenSet->id) {
-            throw new AuthorizationException('This token can only keep lists in its own social set.');
+        if ($this->tokenSocialSet($request) && array_key_exists('social_set_id', $data) && $data['social_set_id'] !== $model->social_set_id) {
+            throw new AuthorizationException('This token cannot change which social set a list belongs to.');
         }
 
-        $model = $this->ownedList($request, $list);
         $model->update($data);
 
         return PostListResource::make($model->loadCount(['posts' => $this->team($request)->visiblePostsScope()]));
