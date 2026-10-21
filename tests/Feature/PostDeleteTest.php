@@ -101,7 +101,7 @@ test('a missing delete permission asks to reconnect the account and keeps the po
     Http::fake(['https://graph.threads.com/v1.0/t1' => Http::response(['error' => ['message' => 'Application does not have permission for this action', 'code' => 10]], 403)]);
     $post = publishedOn('threads', 't1');
 
-    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect this account under Connections'));
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect this account under Connections'));
 
     expect($post->fresh()->status)->toBe('published')
         ->and($post->targets()->sole()->status)->toBe('published');
@@ -111,14 +111,14 @@ test('linkedin 403 also asks to reconnect', function () {
     Http::fake(['https://api.linkedin.com/rest/posts/*' => Http::response(['message' => 'Not enough permissions'], 403)]);
     $post = publishedOn('linkedin', 'urn:li:share:9');
 
-    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect'));
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect'));
 });
 
 test('another platform error says to delete it in the app', function () {
     Http::fake(['https://graph.facebook.com/v26.0/m1' => Http::response(['error' => ['message' => 'The media type is not supported for this endpoint.', 'code' => 100]], 400)]);
     $post = publishedOn('instagram', 'm1');
 
-    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'delete it in the Instagram app') && ! str_contains($m, 'reconnect'));
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'delete it in the Instagram app') && ! str_contains($m, 'reconnect'));
     expect($post->fresh()->status)->toBe('published');
 });
 
@@ -188,7 +188,7 @@ test('an expired meta token or a revoked bluesky app password asks to reconnect'
     ]);
     $post = publishedOn($provider, $remoteId);
 
-    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect this account'));
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'reconnect this account'));
 })->with([
     'facebook 190' => ['facebook', 'p_1', 'https://graph.facebook.com/v26.0/p_1', ['error' => ['message' => 'Session has expired', 'code' => 190]], 400],
     'bluesky 401' => ['bluesky', 'at://did:plc:me/app.bsky.feed.post/3x', 'https://bsky.social/xrpc/com.atproto.repo.deleteRecord', [], 200],
@@ -198,7 +198,7 @@ test('a post on a removed account says to delete it in the app', function () {
     $post = publishedOn('facebook', 'p_1');
     $post->targets()->sole()->socialAccount->delete();
 
-    deleteViaApi($post)->assertStatus(502)->assertJsonPath('message', fn ($m) => str_contains($m, 'delete it in the Facebook app'));
+    deleteViaApi($post)->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'delete it in the Facebook app'));
     Http::assertNothingSent();
 });
 

@@ -86,7 +86,8 @@ class PostController extends Controller
     /**
      * Delete a post. A draft or scheduled one is removed (204). A published one is taken down from every
      * account it went out to and kept with status `deleted` (200). If an account cannot delete it, the
-     * answer is 502 with what to do in `message`: reconnect the account, or delete it in the platform's app.
+     * answer is 422 with what to do in `message`: reconnect the account, or delete it in the platform's app.
+     * Not 502: Cloudflare replaces a 502 body with its own page, so the message would never arrive.
      */
     public function destroy(Request $request, int $post): PostResource|Response|JsonResponse
     {
@@ -97,7 +98,7 @@ class PostController extends Controller
 
             return $errors === []
                 ? PostResource::make($model->load('targets.socialAccount'))
-                : response()->json(['message' => implode(' ', $errors)], 502);
+                : response()->json(['message' => implode(' ', $errors)], 422);
         }
 
         if (! $model->isEditable()) {
