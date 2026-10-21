@@ -48,8 +48,8 @@ class XPublisher implements Publisher
             throw new RuntimeException("X posts are limited to 280 characters; this one has {$length}.");
         }
 
-        $account = X::fresh($account);
-        $token = $account->access_token;
+        // A video download, chunked upload and processing wait can take minutes, so ask for a wider margin.
+        $token = X::fresh($account, 15)->access_token;
 
         $ids = $videos !== []
             ? [$this->upload($token, ...MediaDownload::video($videos[0], self::MAX_VIDEO_BYTES, 'X'), category: 'tweet_video')]

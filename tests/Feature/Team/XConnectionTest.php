@@ -149,6 +149,24 @@ test('an x account with a short-lived but renewable token is not flagged to reco
     $this->actingAs($this->owner)->get(route('connections.index'))->assertInertia(fn ($page) => $page->where('accounts.0.reconnect', false));
 });
 
+test('a refused client secret (401) does not flag accounts for reconnecting', function () {
+    Http::fake(['https://api.x.com/2/oauth2/token' => Http::response(['error' => 'invalid_client', 'error_description' => 'Client authentication failed.'], 401)]);
+    $due = xAccount();
+
+    $this->artisan('x:refresh-tokens')->expectsOutputToContain('Refreshed 0 X token(s).')->assertSuccessful();
+
+    expect($due->fresh())->access_token->toBe('old')->and(Crypt::decryptString($due->fresh()->meta['refresh_token']))->toBe('r1');
+});
+
+test('a refresh response without a new refresh token keeps the current one', function () {
+    Http::fake(['https://api.x.com/2/oauth2/token' => ['access_token' => 'fresh', 'expires_in' => 7200]]);
+    $due = xAccount();
+
+    $this->artisan('x:refresh-tokens')->expectsOutputToContain('Refreshed 1 X token(s).')->assertSuccessful();
+
+    expect($due->fresh())->access_token->toBe('fresh')->and(Crypt::decryptString($due->fresh()->meta['refresh_token']))->toBe('r1');
+});
+
 test('a network failure during refresh leaves the account untouched', function () {
     Http::fake(['https://api.x.com/2/oauth2/token' => fn () => throw new ConnectionException('cURL error 28: https://api.x.com/2/oauth2/token')]);
     $due = xAccount();

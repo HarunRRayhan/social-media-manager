@@ -64,7 +64,8 @@ class X
                     throw new ReconnectRequired('X: the account must be connected again.');
                 }
 
-                $locked->update(self::tokenAttributes(self::refresh(Crypt::decryptString($locked->meta['refresh_token']))));
+                $current = Crypt::decryptString($locked->meta['refresh_token']);
+                $locked->update(self::tokenAttributes(self::refresh($current), $current));
 
                 return $locked;
             });
@@ -80,18 +81,21 @@ class X
      * The access_token, token_expires_at and meta columns a token response fills.
      *
      * @param  array<string, mixed>  $token
+     * @param  string|null  $currentRefreshToken  kept when a refresh response rotates no new one
      * @return array<string, mixed>
      */
-    public static function tokenAttributes(array $token): array
+    public static function tokenAttributes(array $token, ?string $currentRefreshToken = null): array
     {
-        if (! is_string($token['access_token'] ?? null) || ! is_string($token['refresh_token'] ?? null)) {
+        $refreshToken = $token['refresh_token'] ?? $currentRefreshToken;
+
+        if (! is_string($token['access_token'] ?? null) || ! is_string($refreshToken)) {
             throw new RuntimeException('X: did not return an access and refresh token.');
         }
 
         return [
             'access_token' => $token['access_token'],
             'token_expires_at' => now()->addSeconds((int) ($token['expires_in'] ?? 7200)),
-            'meta' => ['refresh_token' => Crypt::encryptString($token['refresh_token'])],
+            'meta' => ['refresh_token' => Crypt::encryptString($refreshToken)],
         ];
     }
 
@@ -181,8 +185,9 @@ class X
                 throw new RuntimeException($message.' (rate limit'.($reset ? ', resets at '.date('H:i', $reset).' UTC' : '').'). It was not retried.');
             }
 
-            // 401 is an expired or revoked token. A refused token exchange (400) also needs a new sign-in.
-            throw $response->status() === 401 || ($tokenRequest && $response->status() === 400) ? new ReconnectRequired($message) : new RuntimeException($message);
+            // 401 on the API is an expired or revoked token; on the token endpoint a refused code or refresh token
+            // is a 400, while 401 there is the app's own client secret and must not flag the account.
+            throw ($tokenRequest ? $response->status() === 400 : $response->status() === 401) ? new ReconnectRequired($message) : new RuntimeException($message);
         }
 
         return $response;
