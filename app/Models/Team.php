@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Closure;
 use Database\Factories\TeamFactory;
 use DateTimeInterface;
 use Illuminate\Auth\Authenticatable;
@@ -31,6 +32,9 @@ class Team extends Model implements AuthenticatableContract
 {
     /** @use HasFactory<TeamFactory> */
     use Authenticatable, HasApiTokens, HasFactory;
+
+    /** @var array<int, SocialSet|null> */
+    private array $tokenSocialSets = [];
 
     protected static function booted(): void
     {
@@ -113,6 +117,57 @@ class Team extends Model implements AuthenticatableContract
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
+    }
+
+    /** @return HasMany<PostList, $this> */
+    public function postLists(): HasMany
+    {
+        return $this->hasMany(PostList::class);
+    }
+
+    /**
+     * The set the current API token is limited to, or null for a whole-team token.
+     */
+    public function tokenSocialSet(): ?SocialSet
+    {
+        $token = $this->currentAccessToken();
+
+        // Memoized per token object: a request resolves it once, but tests swap tokens on one instance.
+        if (! array_key_exists(spl_object_id($token), $this->tokenSocialSets)) {
+            $ability = collect($token->abilities)->first(fn (string $ability) => Str::startsWith($ability, 'social-set:'));
+
+            $this->tokenSocialSets[spl_object_id($token)] = $ability
+                ? $this->socialSets()->findOrFail((int) Str::after($ability, 'social-set:'))
+                : null;
+        }
+
+        return $this->tokenSocialSets[spl_object_id($token)];
+    }
+
+    /**
+     * Limits a `posts` relation (of a list) to the posts the current token can see, for eager loads and counts.
+     *
+     * @return Closure(mixed): mixed
+     */
+    public function visiblePostsScope(): Closure
+    {
+        $set = $this->tokenSocialSet();
+
+        return fn ($query) => $query->when($set, fn ($query) => $query->whereBelongsTo($set));
+    }
+
+    /**
+     * Limits a `lists` relation (of a post) to team-wide lists plus, for a set token, its own set's.
+     *
+     * @return Closure(mixed): mixed
+     */
+    public function visibleListsScope(): Closure
+    {
+        $set = $this->tokenSocialSet();
+
+        return fn ($query) => $query->when($set, fn ($query) => $query->where(
+            fn ($query) => $query->whereNull('post_lists.social_set_id')->orWhere('post_lists.social_set_id', $set->id),
+        ));
     }
 
     /** @return HasMany<TeamInvitation, $this> */

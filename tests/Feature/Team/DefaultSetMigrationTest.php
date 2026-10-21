@@ -21,7 +21,7 @@ test('the migration marks or creates each team\'s Default set and puts every acc
     $empty = Team::factory()->create();
     $orphan = SocialAccount::factory()->for($empty)->create();
 
-    $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
+    $this->artisan('migrate:rollback', ['--step' => 2])->assertSuccessful();
     DB::table('social_account_social_set')->where('social_account_id', $accounts[0]->id)->delete();
 
     $this->artisan('migrate')->assertSuccessful();

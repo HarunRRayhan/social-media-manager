@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $error
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read PostListItem|null $pivot
  */
 #[Fillable(['team_id', 'social_set_id', 'platform', 'body', 'media', 'status', 'scheduled_at', 'published_at', 'error'])]
 class Post extends Model
@@ -55,6 +57,16 @@ class Post extends Model
     public function targets(): HasMany
     {
         return $this->hasMany(PostTarget::class);
+    }
+
+    /**
+     * The lists this post is part of, with its 1-based `position` on the pivot.
+     *
+     * @return BelongsToMany<PostList, $this, PostListItem>
+     */
+    public function lists(): BelongsToMany
+    {
+        return $this->belongsToMany(PostList::class, 'post_list_items')->using(PostListItem::class)->withPivot('position');
     }
 
     /** Only drafts and scheduled posts can still change; queued, published, and failed ones are locked. */

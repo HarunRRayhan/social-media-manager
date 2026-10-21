@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\PostController;
+use App\Http\Controllers\Api\V1\PostListController;
 use App\Http\Controllers\Api\V1\SocialAccountController;
 use App\Http\Controllers\Api\V1\SocialSetController;
 use Illuminate\Support\Facades\Route;
@@ -18,4 +19,13 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:120,1'])->group(funct
     Route::get('posts/{post}', [PostController::class, 'show'])->whereNumber('post');
     Route::patch('posts/{post}', [PostController::class, 'update'])->whereNumber('post');
     Route::delete('posts/{post}', [PostController::class, 'destroy'])->whereNumber('post');
+
+    Route::get('lists', [PostListController::class, 'index']);
+    Route::post('lists', [PostListController::class, 'store']);
+    Route::get('lists/{list}', [PostListController::class, 'show'])->whereNumber('list');
+    Route::patch('lists/{list}', [PostListController::class, 'update'])->whereNumber('list');
+    Route::delete('lists/{list}', [PostListController::class, 'destroy'])->whereNumber('list');
+    Route::post('lists/{list}/posts', [PostListController::class, 'addPost'])->whereNumber('list');
+    Route::put('lists/{list}/posts/order', [PostListController::class, 'reorder'])->whereNumber('list');
+    Route::delete('lists/{list}/posts/{post}', [PostListController::class, 'removePost'])->whereNumber('list')->whereNumber('post');
 });
